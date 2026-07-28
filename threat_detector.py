@@ -1,0 +1,76 @@
+alerts = []
+port_history = {}
+syn_counter = {}
+icmp_counter = {}
+
+ICMP_THRESHOLD = 30
+PPS_THRESHOLD = 100
+UPLOAD_THRESHOLD = 5 * 1024 *1024
+DOWNLOAD_THRESHOLD = 10 * 1024* 1024
+PORT_SCAN_THRESHOLD = 10
+SYN_THRESHOLD = 30
+
+def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
+    alerts.clear()
+    if packet_speed > PPS_THRESHOLD:
+        alerts.append(
+            f"🚨 High Packet Rate ({packet_speed} PPS)"
+        )
+
+    if upload_speed > UPLOAD_THRESHOLD:
+        alerts.append(
+            f"🚨 Upload spike ({upload_speed/(1024*1024):.2f} MB/s)"
+        )
+
+    if download_speed > DOWNLOAD_THRESHOLD:
+            alerts.append(
+                f"🚨 Download spike ({download_speed/(1024*1024):.2f} MB/s)"
+            )
+    if parsed_data is not None and parsed_data["protocol"] == "TCP":
+        src_ip = parsed_data["src_ip"]
+        dst_port = parsed_data["dst_port"]
+        if src_ip not in port_history:
+            port_history[src_ip] = set()
+        port_history[src_ip].add(dst_port)
+
+        flag = parsed_data["flags"]
+        if flag == "S":
+            if src_ip not in syn_counter:
+                syn_counter[src_ip] = 0
+            syn_counter[src_ip]+= 1
+
+    if parsed_data is not None:
+        if parsed_data["protocol"] == "ICMP":
+            src_ip = parsed_data["src_ip"]
+            if src_ip not in icmp_counter:
+                icmp_counter[src_ip] = 0
+            icmp_counter[src_ip] += 1
+
+    for ip, ports in port_history.items():
+        if len(ports) >= PORT_SCAN_THRESHOLD:
+            alerts.append(
+                 f"🚨 Port scan ({ip} - {len(ports)}) unique ports"
+            )
+
+    for ip, count in syn_counter.items():
+        if count >= SYN_THRESHOLD:
+            alerts.append(
+                f"🚨 Possible SYN Flood ({ip}) - {count} SYN packets"
+            )
+
+    for ip, count in icmp_counter.items():
+        if count >= ICMP_THRESHOLD:
+            alerts.append(
+            f"🚨 Possible ICMP Flood ({ip}) - {count} ICMP packets"
+            )
+def print_alerts():
+    print("=" * 50)
+    print("Threat Detection")
+    print("=" * 50)
+    if alerts:
+        for alert in alerts:
+            print(alert)
+    else:
+        print("✅ No Threats Detected")
+
+    print("=" * 50)
