@@ -1,5 +1,5 @@
 from scapy.layers.inet import IP, TCP, UDP
-
+import time
 PROTOCOLS = {
     1: "ICMP",
     6: "TCP",
@@ -50,5 +50,6 @@ def parse_packet(packet):
         "dst_port": dst_port,
         "service": service,
         "size": len(packet),
-        "flags" : str(flag)
+        "flags" : str(flag),
+        "timestamp" : time.time()
     }
