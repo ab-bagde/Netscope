@@ -4,12 +4,12 @@ alerts = []
 port_history = {}
 syn_counter = {}
 icmp_counter = {}
-ICMP_THRESHOLD = 30
-PPS_THRESHOLD = 100
-UPLOAD_THRESHOLD = 5 * 1024 *1024
-DOWNLOAD_THRESHOLD = 10 * 1024* 1024
-PORT_SCAN_THRESHOLD = 10
-SYN_THRESHOLD = 30
+ICMP_THRESHOLD = 100
+PPS_THRESHOLD = 500
+UPLOAD_THRESHOLD = 20 * 1024 *1024
+DOWNLOAD_THRESHOLD = 50 * 1024* 1024
+PORT_SCAN_THRESHOLD = 20
+SYN_THRESHOLD = 100
 
 def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
     alerts.clear()
@@ -52,9 +52,19 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
 
         flag = parsed_data["flags"]
         if flag == "S":
-            if src_ip not in syn_counter:
-                syn_counter[src_ip] = 0
-            syn_counter[src_ip]+= 1
+            if (src_ip, dst_ip) not in syn_counter:
+                syn_counter[(src_ip, dst_ip)] = deque()
+            syn_history = syn_counter[(src_ip, dst_ip)]
+            syn_history.append(timestamp)
+            while syn_history and timestamp - syn_history[0] > 1:
+                syn_history.popleft()
+
+            if not syn_history:
+                del syn_counter[(src_ip, dst_ip)]
+            elif len(syn_history) >= SYN_THRESHOLD:
+                alerts.append(
+                    f"🚨 Possible SYN Flood ({src_ip} - {dst_ip} : {len(syn_history)}) SYN packets"
+                )
 
     if parsed_data is not None:
         if parsed_data["protocol"] == "ICMP":
@@ -62,13 +72,6 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
             if src_ip not in icmp_counter:
                 icmp_counter[src_ip] = 0
             icmp_counter[src_ip] += 1
-
-
-    for ip, count in syn_counter.items():
-        if count >= SYN_THRESHOLD:
-            alerts.append(
-                f"🚨 Possible SYN Flood ({ip}) - {count} SYN packets"
-            )
 
     for ip, count in icmp_counter.items():
         if count >= ICMP_THRESHOLD:
