@@ -15,6 +15,7 @@ from top_talkers import track_top_talkers
 from packet_logger import log_packet, initialize_logger, close_logger
 from threat_detector import detect_threats
 from bandwidth_monitor import get_live_stats
+from alert_logger import initialize_alert_logger, close_alert_logger
 my_ip = get_myIP()
 # start_time = time.time()
 # packets = capture_packets()
@@ -46,9 +47,11 @@ def process_packet(packet):
 
 try:  
     initialize_logger()
+    initialize_alert_logger()
     print("Netscope starting...")
     live_capture(process_packet)
 finally:
+    close_alert_logger()
     close_logger()
 #Static Network Dashboard
 
