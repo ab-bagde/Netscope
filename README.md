@@ -6,17 +6,17 @@
 
 ---
 
-## Overview
+# Overview
 
 NetScope is a modular Network Monitoring and Intrusion Detection System (IDS) built using Python and Scapy. It captures live network traffic, analyzes packets in real time, monitors network activity, tracks active connections, identifies high bandwidth consumers, logs packet information, and detects common network threats through rule-based analysis.
 
-The project is designed with a modular architecture where each component performs a single responsibility, making the system maintainable, scalable, and easy to extend with future security capabilities.
+The project follows a modular architecture where each component performs a single responsibility, making the system maintainable, scalable, and easy to extend with future security capabilities.
 
 ---
 
-## Features
+# Features
 
-### Live Network Monitoring
+## Live Network Monitoring
 
 - Live packet capture using Scapy
 - IPv4 packet parsing
@@ -25,66 +25,90 @@ The project is designed with a modular architecture where each component perform
 - Service identification using well-known ports
 - Incoming and outgoing traffic detection
 
-### Network Analytics
+---
+
+## Network Analytics
 
 - Real-time packet statistics
 - Active connection tracking
 - Upload and download bandwidth monitoring
-- Live network speed calculation
+- Live upload/download speed calculation
+- Packets Per Second (PPS) monitoring
 - Top Talkers analysis
 
-### Threat Detection
+---
 
-- High Packet Rate Detection
+## Threat Detection
+
+- High Packet Rate Detection (Packets Per Second)
 - Upload Traffic Spike Detection
 - Download Traffic Spike Detection
 - TCP Port Scan Detection
 - TCP SYN Flood Detection
 - ICMP Flood Detection
-
-### Logging
-
-- Packet logging to CSV
-- Timestamped packet records
-- Source and destination IP logging
-- Protocol and packet size logging
-- Traffic direction logging
+- Sliding Time Window based detection
+- Configurable detection thresholds
+- Real-time threat monitoring
 
 ---
 
-## Project Architecture
+## Logging
+
+### Packet Logger
+
+- Packet logging to CSV
+- Timestamped packet records
+- Source IP logging
+- Destination IP logging
+- Protocol logging
+- Packet size logging
+- Traffic direction logging
+
+### Alert Logger
+
+- Threat event logging
+- Timestamped alerts
+- Source & Destination IP logging
+- Threat details logging
+- Alert lifecycle tracking
+- Threat Started / Ended logging
+
+---
+
+# Project Architecture
 
 ```text
-Live Packet Capture
-        │
-        ▼
-Packet Parser
-        │
-        ▼
-Direction Detector
-        │
-        ▼
-Packet Filter
-        │
-        ▼
- ┌──────────────────────────────────────────────┐
- │                                              │
- │  Packet Statistics                           │
- │  Connection Tracker                          │
- │  Bandwidth Monitor                           │
- │  Top Talkers                                 │
- │  Threat Detector                             │
- │  Packet Logger                               │
- │                                              │
- └──────────────────────────────────────────────┘
-        │
-        ▼
-Live Monitoring Dashboard
+                     Live Packet Capture
+                              │
+                              ▼
+                      Packet Parser
+                              │
+                              ▼
+                   Direction Detector
+                              │
+                              ▼
+                     Packet Filter
+                              │
+                              ▼
+ ┌────────────────────────────────────────────────────────────┐
+ │                                                            │
+ │  Packet Statistics                                         │
+ │  Connection Tracker                                        │
+ │  Bandwidth Monitor                                         │
+ │  Top Talkers                                               │
+ │  Threat Detector                                           │
+ │  Packet Logger                                             │
+ │  Alert Logger                                              │
+ │                                                            │
+ └────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                 Live Monitoring Dashboard
 ```
 
 ---
 
-## Technologies Used
+# Technologies Used
 
 - Python
 - Scapy
@@ -94,20 +118,24 @@ Live Monitoring Dashboard
 
 ---
 
-## Threat Detection Techniques
+# Threat Detection Techniques
 
-NetScope currently implements rule-based detection mechanisms for:
+NetScope currently implements **rule-based intrusion detection** using configurable thresholds and sliding time-window analysis.
 
-- High Packet Rate
-- Upload Bandwidth Spike
-- Download Bandwidth Spike
-- TCP Port Scan
-- TCP SYN Flood
-- ICMP Flood
+Current detections include:
+
+- High Packet Rate Detection (Packets Per Second)
+- Upload Bandwidth Spike Detection
+- Download Bandwidth Spike Detection
+- TCP Port Scan Detection (Unique destination ports within a configurable time window)
+- TCP SYN Flood Detection (Large number of SYN packets within a configurable time window)
+- ICMP Flood Detection (Large number of ICMP packets within a configurable time window)
+
+Detection parameters are centralized inside the `THRESHOLDS` dictionary, making the IDS easy to tune for different network environments.
 
 ---
 
-## Project Structure
+# Project Structure
 
 ```text
 NetScope/
@@ -123,6 +151,7 @@ NetScope/
 ├── top_talkers.py
 ├── threat_detector.py
 ├── packet_logger.py
+├── alert_logger.py
 ├── dashboard.py
 ├── utils.py
 ├── requirements.txt
@@ -131,22 +160,22 @@ NetScope/
 
 ---
 
-## Installation
+# Installation
 
-Clone the repository:
+Clone the repository
 
 ```bash
 git clone https://github.com/ab-bagde/NetScope.git
 cd NetScope
 ```
 
-Install dependencies:
+Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Run the project:
+Run NetScope
 
 ```bash
 python main.py
@@ -154,33 +183,43 @@ python main.py
 
 ---
 
-## Current Capabilities
+# Current Capabilities
 
 - Live packet capture
 - Modular packet processing pipeline
+- Real-time packet parsing
 - Real-time traffic monitoring
-- Network bandwidth analysis
 - Active connection monitoring
+- Network bandwidth analysis
+- Upload & download speed calculation
+- Packets Per Second (PPS) monitoring
 - Top Talkers identification
 - Rule-based intrusion detection
+- Sliding time-window based threat detection
+- Configurable detection thresholds
 - Packet logging
+- Alert logging with threat start/end events
 
 ---
 
-## Future Enhancements
+# Future Enhancements
 
-- Time-window based threat detection
 - Professional GUI Dashboard
-- Configuration file support
-- Alert logging
+- Configuration file support (JSON/YAML)
 - DNS anomaly detection
-- ARP spoofing detection
-- Threat intelligence integration
-- Interactive traffic visualization
+- ARP Spoofing Detection
+- DHCP Starvation Detection
+- MAC Spoofing Detection
+- Threat Intelligence Integration
+- Interactive Traffic Visualization
+- Machine Learning based Anomaly Detection
+- Email/Desktop Alert Notifications
+- Automatic IP Blocking
+- Firewall Integration
 
 ---
 
-## Learning Outcomes
+# Learning Outcomes
 
 Through this project, I strengthened my understanding of:
 
@@ -189,16 +228,19 @@ Through this project, I strengthened my understanding of:
 - Intrusion Detection Systems (IDS)
 - Network Traffic Monitoring
 - Rule-Based Threat Detection
-- Modular Software Design
+- Sliding Window Algorithms
+- Real-time Event Logging
+- Bandwidth Analysis
 - Python Programming
 - Scapy Framework
+- Modular Software Design
 
 ---
 
-## License
+# License
 
 This project is intended for educational and research purposes.
 
 ---
 
-**Developed with dedication by Bagde Abhay Dipakkumar**
+## Developed with dedication by Bagde Abhay Dipakkumar
