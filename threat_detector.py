@@ -5,6 +5,7 @@ active_alerts = set()
 port_history = {}
 syn_counter = {}
 icmp_counter = {}
+dns_counter = {}
 THRESHOLDS = {
     "pps": 120,
     "upload": 20 * 1024 * 1024,
@@ -12,6 +13,7 @@ THRESHOLDS = {
     "port_scan": 5,
     "syn_flood": 100,
     "icmp_flood": 100,
+    "dns_flood":75,
     "window_size":1
 }
 
@@ -167,6 +169,33 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
             elif key in active_alerts:
                     active_alerts.remove(key)
                     alerts_logger("ICMP Flood", src_ip, dst_ip, "Normal", "Ended")
+
+    if parsed_data is not None and parsed_data["service"] == "DNS":
+        timestamp = parsed_data["timestamp"]
+        src_ip = parsed_data["src_ip"]
+        dst_ip = parsed_data["dst_ip"]
+        key = ("DNS Flood", src_ip, dst_ip)
+       
+        if (src_ip, dst_ip) not in dns_counter:
+             dns_counter[(src_ip, dst_ip)] = deque()
+        dns_history = dns_counter[(src_ip, dst_ip)]
+        dns_history.append(timestamp)
+        while dns_history and timestamp - dns_history[0] > THRESHOLDS["window_size"]:
+             dns_history.popleft()
+        if not history:
+             del dns_counter[(src_ip, dst_ip)]
+             if key in active_alerts:
+                  active_alerts.remove(key)
+                  alerts_logger("DNS Flood",src_ip, dst_ip, "Normal","Ended")
+        elif len(dns_history) >= THRESHOLDS["dns_flood"]:
+             alerts.append(
+                   f"🚨 Possible DNS Flood ({src_ip} - {dst_ip} : {len(dns_history)}) DNS requests"
+             )
+             if key not in dns_history:
+                   alerts_logger("DNS Flood",src_ip, dst_ip, f"{len(dns_history)} DNS requests","Started")
+        elif key in active_alerts:
+             active_alerts.remove(key)
+             alerts_logger("DNS Flood",src_ip, dst_ip, "Normal","Ended")
 
 def print_alerts():
     print("=" * 50)
