@@ -1,4 +1,5 @@
 from scapy.layers.inet import IP, TCP, UDP
+from scapy.layers.dns import DNS, DNSQR
 import time
 PROTOCOLS = {
     1: "ICMP",
@@ -42,6 +43,11 @@ def parse_packet(packet):
     service = PORTS.get(dst_port)
     if service is None:
         service = PORTS.get(src_port, "Unknown")
+    domain = None
+    domain_length = 0
+    if DNS in packet and DNSQR in packet:
+        domain = packet[DNSQR].qname.decode().rstrip(".")
+    domain_length = len(domain)
     return {
         "src_ip": packet[IP].src,
         "dst_ip": packet[IP].dst,
@@ -51,5 +57,7 @@ def parse_packet(packet):
         "service": service,
         "size": len(packet),
         "flags" : str(flag),
-        "timestamp" : time.time()
+        "timestamp" : time.time(),
+        "domain": domain,
+        "domain_length": domain_length
     }
