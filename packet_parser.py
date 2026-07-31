@@ -47,7 +47,7 @@ def parse_packet(packet):
     domain_length = 0
     if DNS in packet and DNSQR in packet:
         domain = packet[DNSQR].qname.decode().rstrip(".")
-    domain_length = len(domain)
+        domain_length = len(domain)
     return {
         "src_ip": packet[IP].src,
         "dst_ip": packet[IP].dst,

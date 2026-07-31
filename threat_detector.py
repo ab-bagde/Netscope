@@ -14,7 +14,8 @@ THRESHOLDS = {
     "syn_flood": 100,
     "icmp_flood": 100,
     "dns_flood":75,
-    "window_size":1
+    "window_size":1,
+    "dns_len" : 90
 }
 
 def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
@@ -182,7 +183,7 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
         dns_history.append(timestamp)
         while dns_history and timestamp - dns_history[0] > THRESHOLDS["window_size"]:
              dns_history.popleft()
-        if not history:
+        if not dns_history:
              del dns_counter[(src_ip, dst_ip)]
              if key in active_alerts:
                   active_alerts.remove(key)
@@ -191,12 +192,42 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
              alerts.append(
                    f"🚨 Possible DNS Flood ({src_ip} - {dst_ip} : {len(dns_history)}) DNS requests"
              )
-             if key not in dns_history:
+             if key not in active_alerts:
+                   active_alerts.add(key)
                    alerts_logger("DNS Flood",src_ip, dst_ip, f"{len(dns_history)} DNS requests","Started")
         elif key in active_alerts:
              active_alerts.remove(key)
              alerts_logger("DNS Flood",src_ip, dst_ip, "Normal","Ended")
+    if parsed_data is not None and parsed_data["domain"] is not None:
+        src_ip = parsed_data["src_ip"]
+        dst_ip = parsed_data["dst_ip"]
+        domain_name = parsed_data["domain"]
+        domain_len = parsed_data["domain_length"]
 
+        key = ("Long DNS Query", src_ip, dst_ip, domain_name)
+
+        if domain_len >= THRESHOLDS["dns_len"]:
+            alerts.append(
+                f"🚨 Suspicious Long DNS Query ({domain_name})"
+            )
+            if key not in active_alerts:
+                active_alerts.add(key)
+                alerts_logger(
+                "Long DNS Query",
+                src_ip,
+                dst_ip,
+                domain_name,
+                "Started"
+            )
+        elif key in active_alerts:
+            active_alerts.remove(key)
+            alerts_logger(
+            "Long DNS Query",
+            src_ip,
+             dst_ip,
+            "Normal",
+            "Ended"
+        )
 def print_alerts():
     print("=" * 50)
     print("Threat Detection")
