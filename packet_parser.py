@@ -22,7 +22,17 @@ PORTS = {
     5353: "mDNS"
 }
 def parse_packet(packet):
-
+    if ARP in packet:
+        return {
+            "protocol": "ARP",
+            "sender_ip": packet[ARP].psrc,
+            "sender_mac": packet[ARP].hwsrc,
+            "target_ip": packet[ARP].pdst,
+            "target_mac": packet[ARP].hwdst,
+            "timestamp": time.time(),
+            "operation":packet[ARP].op,
+            "size": len(packet)
+        }
     if IP not in packet:
         return None
 
@@ -49,12 +59,6 @@ def parse_packet(packet):
         domain = packet[DNSQR].qname.decode().rstrip(".")
         domain_length = len(domain)
 
-    sender_ip = None
-    sender_mac = None
-    if ARP in packet:
-        sender_ip = packet[ARP].psrc
-        sender_mac = packet[ARP].hwsrc
-
     return {
         "src_ip": packet[IP].src,
         "dst_ip": packet[IP].dst,
@@ -67,6 +71,4 @@ def parse_packet(packet):
         "timestamp" : time.time(),
         "domain": domain,
         "domain_length": domain_length,
-        "sender_ip" : sender_ip,
-        "sender_mac" : sender_mac
     }
