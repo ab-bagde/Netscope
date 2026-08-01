@@ -7,6 +7,7 @@ syn_counter = {}
 icmp_counter = {}
 dns_counter = {}
 domain_counter = {}
+mac_table = {}
 THRESHOLDS = {
     "pps": 120,
     "upload": 20 * 1024 * 1024,
@@ -235,6 +236,25 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
                     active_alerts.remove(key)
                     alerts_logger("Suspicious DNS Activity", src_ip, dst_ip, "Normal", "Ended")
 
+    if parsed_data is not None and parsed_data["operation"] == 2:
+        sender_ip = parsed_data["sender_ip"]
+        sender_mac = parsed_data["sender_mac"]
+        dest_ip = parsed_data["target_ip"]
+        key = ("ARP spoofing", sender_ip)
+        if sender_ip in mac_table:
+            if sender_mac != mac_table[sender_ip]:
+                alerts.append(
+                        f"🚨 Possible ARP Spoofing ({sender_ip} changed MAC from {mac_table[sender_ip]} To {sender_mac})"
+                )
+                if key not in active_alerts:
+                    active_alerts.add(key)
+                    alerts_logger("ARP Spoofing", sender_ip, dest_ip, f"changed MAC from {mac_table[sender_ip]} To {sender_mac}", "Started")
+            elif sender_mac == mac_table[sender_ip]:
+                if key in active_alerts:
+                    active_alerts.remove(key)
+                    alerts_logger("ARP Spoofing", sender_ip, dest_ip, "Normal", "Ended")
+        elif sender_ip not in mac_table:
+            mac_table[sender_ip] = sender_mac
 def print_alerts():
     print("=" * 50)
     print("Threat Detection")
