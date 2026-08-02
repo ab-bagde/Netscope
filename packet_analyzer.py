@@ -39,11 +39,11 @@ def analyze_packet(parsed_packet):
     elif parsed_packet["protocol"] == "ICMP":
         status = "📶 Ping / Network Control"
     print(f"Status           : {status}")
-    
+
     direction = "Unknown"
     if parsed_packet["service"] != "Unknown":
         if parsed_packet["dst_port"] in [80, 443, 53, 22]:
             direction = "Outgoing"
-    elif parsed_packet["src_port"] in [80, 443, 53, 22]:
+        elif parsed_packet["src_port"] in [80, 443, 53, 22]:
             direction = "Incoming"
     print(f"Direction        : {direction}")

@@ -39,4 +39,6 @@ def print_connections():
         print(f"Endpoint 1: {src_ip}:{src_port}")
         print(f"Endpoint 2: {dst_ip}:{dst_port}")
         print(f"Packet Count: {count}")
-    
+
+def print_speed():
+    pass

@@ -8,6 +8,7 @@ icmp_counter = {}
 dns_counter = {}
 domain_counter = {}
 mac_table = {}
+dhcp_history = deque()
 THRESHOLDS = {
     "pps": 120,
     "upload": 20 * 1024 * 1024,
@@ -18,13 +19,15 @@ THRESHOLDS = {
     "dns_flood":75,
     "window_size":1,
     "dns_len" : 90,
-    "unique_dns" : 20
+    "unique_dns" : 20,
+    "dhcp_window_size" : 10,
+    "dhcp_mac_threshold" : 35 
 }
 def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
     alerts.clear()
     if parsed_data is not None:
-        src_id = parsed_data['src_ip']
-        dst_id = parsed_data['dst_ip']
+        src_id = parsed_data.get("src_ip", parsed_data.get("sender_ip", parsed_data.get("src_mac", "Unknown")))
+        dst_id = parsed_data.get("dst_ip", parsed_data.get("target_ip", "Unknown"))
     else:
         src_id = "System"
         dst_id = "System"
@@ -94,7 +97,7 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
             )
             if key not in active_alerts:
                 active_alerts.add(key)
-                alerts_logger("Port scan", src_ip, dst_ip, f"{len(unique_ports)}) unique ports", "Started")
+                alerts_logger("Port scan", src_ip, dst_ip, f"{len(unique_ports)} unique ports", "Started")
         elif key in active_alerts:
             active_alerts.remove(key)
             alerts_logger("Port scan", src_ip, dst_ip, "Normal", "Ended")
@@ -155,7 +158,7 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
                     active_alerts.remove(key)
                     alerts_logger("ICMP Flood", src_ip, dst_ip, "Normal", "Ended")
 
-    if parsed_data is not None and parsed_data["service"] == "DNS":
+    if parsed_data is not None and parsed_data.get("service")== "DNS":
         timestamp = parsed_data["timestamp"]
         src_ip = parsed_data["src_ip"]
         dst_ip = parsed_data["dst_ip"]
@@ -183,7 +186,7 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
              active_alerts.remove(key)
              alerts_logger("DNS Flood",src_ip, dst_ip, "Normal","Ended")
 
-    if parsed_data is not None and parsed_data["domain"] is not None:
+    if parsed_data is not None and parsed_data.get("domain") is not None:
         src_ip = parsed_data["src_ip"]
         dst_ip = parsed_data["dst_ip"]
         domain_name = parsed_data["domain"]
@@ -201,7 +204,7 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
             active_alerts.remove(key)
             alerts_logger("Long DNS Query", src_ip, dst_ip, "Normal", "Ended")
 
-    if parsed_data is not None and parsed_data["service"] == "DNS":
+    if parsed_data is not None and parsed_data.get("service") == "DNS":
         timestamp = parsed_data["timestamp"]
         src_ip = parsed_data["src_ip"]
         dst_ip = parsed_data["dst_ip"]
@@ -225,18 +228,18 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
             if key in active_alerts:
                         active_alerts.remove(key)
                         alerts_logger("Suspicious DNS Activity", src_ip, dst_ip, "Normal", "Ended")
-            elif len(unique_domain) >= THRESHOLDS["unique_dns"]:
+        elif len(unique_domain) >= THRESHOLDS["unique_dns"]:
                     alerts.append(
                     f"🚨 Suspicious DNS Activity ({src_ip} queried {len(unique_domain)} unique domains)"
                     )
                     if key not in active_alerts:
                         active_alerts.add(key)
-                        alerts_logger("Suspicious DNS Activity", src_ip, dst_ip, f"{len(unique_domain)}) unique domains","Started")
+                        alerts_logger("Suspicious DNS Activity", src_ip, dst_ip, f"{len(unique_domain)} unique domains","Started")
         elif key in active_alerts:
                     active_alerts.remove(key)
                     alerts_logger("Suspicious DNS Activity", src_ip, dst_ip, "Normal", "Ended")
 
-    if parsed_data is not None and parsed_data["operation"] == 2:
+    if parsed_data is not None and parsed_data.get("operation") == 2:
         sender_ip = parsed_data["sender_ip"]
         sender_mac = parsed_data["sender_mac"]
         dest_ip = parsed_data["target_ip"]
@@ -255,6 +258,35 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
                     alerts_logger("ARP Spoofing", sender_ip, dest_ip, "Normal", "Ended")
         elif sender_ip not in mac_table:
             mac_table[sender_ip] = sender_mac
+
+
+    if parsed_data is not None and parsed_data.get("protocol") == "DHCP" and parsed_data.get("message_type")== 1:
+            src_mac = parsed_data["src_mac"]
+            timestamp = parsed_data["timestamp"]
+            unique_mac_address = set()
+            dhcp_history.append((timestamp, src_mac))
+            while dhcp_history and timestamp - dhcp_history[0][0] > THRESHOLDS["dhcp_window_size"]:
+                dhcp_history.popleft()
+    
+            for _, mac in dhcp_history:
+                unique_mac_address.add(mac)
+            key = ("DHCP Starvation",)
+            if not dhcp_history:
+                if key in active_alerts:
+                    active_alerts.remove(key)
+                    alerts_logger("DHCP Starvation Possible", src_mac, "DHCP Server", "Normal", "Ended")
+            elif len(unique_mac_address) >= THRESHOLDS["dhcp_mac_threshold"]:
+                alerts.append(
+                     f"🚨 Possible DHCP Starvation ({len(unique_mac_address)} unique MAC addresses)"
+                )
+                if key not in active_alerts:
+                    active_alerts.add(key)
+                    alerts_logger("DHCP Starvation Possible", src_mac, "DHCP Server", f"{len(unique_mac_address)} unique MACs", "Started")
+            elif key in active_alerts:
+                active_alerts.remove(key)
+                alerts_logger("DHCP Starvation Possible", src_mac, "DHCP Server", "Normal", "Ended")
+    
+    
 def print_alerts():
     print("=" * 50)
     print("Threat Detection")
