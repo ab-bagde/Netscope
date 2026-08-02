@@ -27,7 +27,12 @@ capture_start_time = time.time()
 def process_packet(packet):
     global last_refresh
     parsed_data = parse_packet(packet)
-    parsed_data = detect_direction(parsed_data, my_ip)
+
+    if parsed_data is None:
+     return
+
+    if parsed_data.get("protocol") not in ("ARP", "DHCP"):
+        parsed_data = detect_direction(parsed_data, my_ip)
 
     if filter_packets(parsed_data):
         packet_statistics(parsed_data)
