@@ -1,6 +1,7 @@
 from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.dns import DNS, DNSQR
 from scapy.layers.l2 import ARP
+from scapy.layers.dhcp import DHCP, BOOTP
 import time
 PROTOCOLS = {
     1: "ICMP",
@@ -33,6 +34,20 @@ def parse_packet(packet):
             "operation":packet[ARP].op,
             "size": len(packet)
         }
+   
+    if DHCP in packet:
+        message_type = None
+        for option in packet[DHCP].options:
+            if isinstance(option, tuple):
+                if option[0] == "message-type":
+                    message_type = option[1]
+                    break
+        return {
+            "protocol" :"DHCP",
+            "src_mac" :packet.src,
+            "message_type" : message_type,
+            "timestamp" : time.time()
+        }
     if IP not in packet:
         return None
 
@@ -56,7 +71,7 @@ def parse_packet(packet):
     domain = None
     domain_length = 0
     if DNS in packet and DNSQR in packet:
-        domain = packet[DNSQR].qname.decode().rstrip(".")
+        domain = packet[DNSQR].qname.decode(errors="ignore").rstrip(".")
         domain_length = len(domain)
 
     return {
