@@ -1,5 +1,8 @@
 from collections import deque
 from alert_logger import alerts_logger
+from malicious_ip_loader import load_malicious_ip
+malicious_ip_dataset = load_malicious_ip()
+
 alerts = []
 active_alerts = set()
 port_history = {}
@@ -10,7 +13,7 @@ domain_counter = {}
 mac_table = {}
 dhcp_history = deque()
 THRESHOLDS = {
-    "pps": 120,
+    "pps": 150,
     "upload": 20 * 1024 * 1024,
     "download": 50 * 1024 * 1024,
     "port_scan": 5,
@@ -285,8 +288,20 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
             elif key in active_alerts:
                 active_alerts.remove(key)
                 alerts_logger("DHCP Starvation Possible", src_mac, "DHCP Server", "Normal", "Ended")
-    
-    
+
+    if parsed_data is not None:
+         src_ip = parsed_data.get("src_ip")
+
+         if src_ip in malicious_ip_dataset:
+            info = malicious_ip_dataset[src_ip]
+            alerts.append(
+                    f"🚨 Malicious IP ({src_ip}) [{info['severity']}] - {info['threat']}"
+                )
+            alerts_logger(
+                "Malicious IP",src_ip, parsed_data["dst_ip"],f"{info['threat']} | {info['severity']} | {info['source']}","Detected"
+                )
+
+            
 def print_alerts():
     print("=" * 50)
     print("Threat Detection")

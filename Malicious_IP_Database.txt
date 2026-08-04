@@ -1,0 +1,26 @@
+# ===============================
+# NetScope - Malicious IP Database
+# Format:
+# IP | Threat Type | Severity | Organization | Description
+# ===============================
+
+45.95.147.12 | Botnet C2 | Critical | AbuseIPDB | Known command-and-control server
+103.27.203.84 | SSH Brute Force | High | AbuseIPDB | Repeated SSH brute-force attempts
+185.220.101.1 | Tor Exit Node | Medium | Tor Project | Public Tor exit relay
+185.220.101.2 | Tor Exit Node | Medium | Tor Project | Public Tor exit relay
+104.244.72.115 | Spam Source | Medium | Spamhaus | Frequently reported spam sender
+91.92.109.43 | Malware Host | Critical | MalwareBazaar | Hosts malware payloads
+198.98.51.189 | DDoS Source | High | AbuseIPDB | Observed in multiple DDoS attacks
+194.26.192.64 | Port Scanner | High | GreyNoise | Performs continuous Internet-wide scanning
+162.142.125.201 | Internet Scanner | Medium | Censys | Research scanner (not always malicious)
+71.6.135.131 | Internet Scanner | Medium | Shodan | Public Internet scanning node
+89.248.165.12 | SSH Scanner | High | GreyNoise | Automated SSH scanning
+23.129.64.210 | Proxy/VPN | Low | Public VPN | Anonymous proxy endpoint
+146.70.0.25 | VPN Exit | Low | Mullvad | VPN exit server
+5.188.206.1 | RDP Brute Force | High | AbuseIPDB | Repeated RDP login attempts
+193.142.146.17 | Credential Attack | High | AbuseIPDB | Password spraying activity
+37.120.244.17 | TOR Relay | Medium | Tor Project | Tor relay
+185.156.73.54 | Phishing Host | Critical | OpenPhish | Hosts phishing pages
+209.141.38.71 | Malware Distribution | Critical | MalwareBazaar | Malware download server
+185.174.136.33 | Crypto Miner | High | AbuseIPDB | Cryptocurrency mining bot
+198.20.99.130 | Reconnaissance | Medium | GreyNoise | Performs reconnaissance scans
