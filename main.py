@@ -1,21 +1,21 @@
 import time
-# from packet_capture import capture_packets
-from packet_parser import parse_packet
-from packet_analyzer import analyze_packet
-from packet_statistics import packet_statistics, print_statistics
-from packet_filter import filter_packets
-from connection_tracker import track_connections, print_connections
-from bandwidth_monitor import update_bandwidth, print_bandwidth, calculate_speed, print_speed
-from utils import get_myIP
-from direction_detector import detect_direction
-from packet_capture import live_capture
-from dashboard import refresh_dashboard
-from bandwidth_monitor import update_live_speed
-from top_talkers import track_top_talkers
-from packet_logger import log_packet, initialize_logger, close_logger
-from threat_detector import detect_threats
-from bandwidth_monitor import get_live_stats
-from alert_logger import initialize_alert_logger, close_alert_logger
+# from core.packet_capture import capture_packets
+from core.packet_parser import parse_packet
+from core.packet_analyzer import analyze_packet
+from core.packet_statistics import packet_statistics, print_statistics
+from core.packet_filter import filter_packets
+from core.connection_tracker import track_connections, print_connections
+from core.bandwidth_monitor import update_bandwidth, print_bandwidth, calculate_speed, print_speed
+from core.utils import get_myIP
+from core.direction_detector import detect_direction
+from core.packet_capture import live_capture
+from gui.dashboard import refresh_dashboard
+from core.bandwidth_monitor import update_live_speed
+from core.top_talkers import track_top_talkers
+from core.packet_logger import log_packet, initialize_logger, close_logger
+from core.threat_detector import detect_threats
+from core.bandwidth_monitor import get_live_stats
+from core.alert_logger import initialize_alert_logger, close_alert_logger
 my_ip = get_myIP()
 # start_time = time.time()
 # packets = capture_packets()

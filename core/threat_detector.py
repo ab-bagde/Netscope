@@ -1,6 +1,6 @@
 from collections import deque
-from alert_logger import alerts_logger
-from malicious_ip_loader import load_malicious_ip
+from core.alert_logger import alerts_logger
+from core.malicious_ip_loader import load_malicious_ip
 malicious_ip_dataset = load_malicious_ip()
 
 alerts = []

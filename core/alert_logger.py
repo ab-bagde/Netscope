@@ -7,7 +7,7 @@ writer = None
 def initialize_alert_logger():
     global file, writer
 
-    file = open("alert.csv", "w", newline="")
+    file = open("logs/alert.csv", "w", newline="")
     writer = csv.writer(file)
 
     writer.writerow([

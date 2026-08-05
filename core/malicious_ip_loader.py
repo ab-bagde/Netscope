@@ -1,7 +1,7 @@
 malicious_ip = {}
 def load_malicious_ip(): 
     global malicious_ip
-    with open("Malicious_IP_Database.txt", "r") as file:
+    with open("database/Malicious_IP_Database.txt", "r") as file:
         for line in file:
             line = line.strip()
 

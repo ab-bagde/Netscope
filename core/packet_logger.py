@@ -1,5 +1,6 @@
 import csv
 import time
+import os
 file = None
 writer = None
 
@@ -7,7 +8,7 @@ def initialize_logger():
     global file
     global writer
 
-    file = open("capture.csv", "w", newline="")
+    file = open("logs/capture.csv", "w", newline="")
     writer = csv.writer(file)
     writer.writerow([
     "Timestamp",
@@ -31,6 +32,8 @@ def log_packet(parsed_data):
         parsed_data['direction'],
 
     ])
+    file.flush()
+    os.fsync(file.fileno())
     
 
 def close_logger():
