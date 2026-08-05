@@ -1,6 +1,6 @@
 # NetScope
 
-### A Modular Network Monitoring & Intrusion Detection System (IDS)
+# Modular Network Monitoring & Intrusion Detection System (IDS)
 
 **Author:** Bagde Abhay Dipakkumar
 
@@ -8,9 +8,9 @@
 
 # Overview
 
-NetScope is a modular Network Monitoring and Intrusion Detection System (IDS) built using Python and Scapy. It captures live network traffic, analyzes packets in real time, monitors network activity, tracks active connections, identifies high bandwidth consumers, logs packet information, and detects common network threats through rule-based analysis.
+NetScope is a modular **Network Monitoring & Intrusion Detection System (IDS)** developed using **Python** and **Scapy**. It captures live network traffic, analyzes packets in real time, monitors bandwidth usage, tracks active network connections, identifies top network communicators, logs packet activity, and detects suspicious behavior using rule-based intrusion detection techniques.
 
-The project follows a modular architecture where each component performs a single responsibility, making the system maintainable, scalable, and easy to extend with future security capabilities.
+The project follows a modular architecture where every component performs a dedicated responsibility, making the system scalable, maintainable, and easy to extend with future security features.
 
 ---
 
@@ -20,10 +20,12 @@ The project follows a modular architecture where each component performs a singl
 
 - Live packet capture using Scapy
 - IPv4 packet parsing
-- TCP and UDP packet analysis
+- TCP, UDP, ICMP, ARP and DHCP packet inspection
+- DNS query extraction and analysis
 - Protocol identification
 - Service identification using well-known ports
-- Incoming and outgoing traffic detection
+- Incoming & outgoing traffic detection
+- Real-time packet processing pipeline
 
 ---
 
@@ -31,24 +33,33 @@ The project follows a modular architecture where each component performs a singl
 
 - Real-time packet statistics
 - Active connection tracking
-- Upload and download bandwidth monitoring
+- Upload & download bandwidth monitoring
 - Live upload/download speed calculation
-- Packets Per Second (PPS) monitoring
-- Top Talkers analysis
+- Packet Rate (Packets Per Second)
+- Top Talkers identification
+- Protocol-wise traffic analysis
+- Packet size monitoring
 
 ---
 
 ## Threat Detection
 
-- High Packet Rate Detection (Packets Per Second)
-- Upload Traffic Spike Detection
-- Download Traffic Spike Detection
-- TCP Port Scan Detection
-- TCP SYN Flood Detection
-- ICMP Flood Detection
-- Sliding Time Window based detection
-- Configurable detection thresholds
-- Real-time threat monitoring
+NetScope currently detects:
+
+- High Packet Rate (PPS)
+- Upload Traffic Spike
+- Download Traffic Spike
+- TCP Port Scan
+- TCP SYN Flood
+- ICMP Flood
+- DNS Flood
+- Suspicious Long DNS Queries
+- High Unique DNS Query Activity
+- ARP Spoofing
+- DHCP Starvation
+- Malicious IP Reputation Detection
+
+All detections are configurable using centralized threshold values and sliding time-window analysis.
 
 ---
 
@@ -56,54 +67,56 @@ The project follows a modular architecture where each component performs a singl
 
 ### Packet Logger
 
-- Packet logging to CSV
-- Timestamped packet records
-- Source IP logging
-- Destination IP logging
-- Protocol logging
-- Packet size logging
-- Traffic direction logging
+- CSV-based packet logging
+- Timestamp
+- Source & Destination IP
+- Protocol
+- Service
+- Packet Size
+- Traffic Direction
+- DNS Query (when available)
 
 ### Alert Logger
 
-- Threat event logging
-- Timestamped alerts
-- Source & Destination IP logging
-- Threat details logging
-- Alert lifecycle tracking
-- Threat Started / Ended logging
+- Threat logging
+- Timestamped events
+- Source & Destination
+- Threat details
+- Alert lifecycle
+- Started / Ended / Detected events
 
 ---
 
 # Project Architecture
 
 ```text
-                     Live Packet Capture
-                              │
-                              ▼
-                      Packet Parser
-                              │
-                              ▼
-                   Direction Detector
-                              │
-                              ▼
+                    Live Packet Capture
+                             │
+                             ▼
+                     Packet Parser
+                             │
+                             ▼
+                  Direction Detector
+                             │
+                             ▼
                      Packet Filter
-                              │
-                              ▼
- ┌────────────────────────────────────────────────────────────┐
- │                                                            │
- │  Packet Statistics                                         │
- │  Connection Tracker                                        │
- │  Bandwidth Monitor                                         │
- │  Top Talkers                                               │
- │  Threat Detector                                           │
- │  Packet Logger                                             │
- │  Alert Logger                                              │
- │                                                            │
- └────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                 Live Monitoring Dashboard
+                             │
+                             ▼
+ ┌──────────────────────────────────────────────────────┐
+ │                                                      │
+ │ Packet Statistics                                    │
+ │ Connection Tracker                                   │
+ │ Bandwidth Monitor                                    │
+ │ Top Talkers                                          │
+ │ Threat Detector                                      │
+ │ Packet Logger                                        │
+ │ Alert Logger                                         │
+ │ Malicious IP Reputation                              │
+ │                                                      │
+ └──────────────────────────────────────────────────────┘
+                             │
+                             ▼
+                  Live Monitoring Dashboard
 ```
 
 ---
@@ -114,24 +127,32 @@ The project follows a modular architecture where each component performs a singl
 - Scapy
 - CSV Module
 - Socket Programming
-- Computer Networking Fundamentals
+- Computer Networking
+- Git & GitHub
 
 ---
 
-# Threat Detection Techniques
+# Threat Detection Methodology
 
-NetScope currently implements **rule-based intrusion detection** using configurable thresholds and sliding time-window analysis.
+NetScope implements a **rule-based IDS** using packet inspection, malicious IP intelligence, configurable thresholds, and sliding time-window algorithms.
 
-Current detections include:
+Current threat detection techniques include:
 
-- High Packet Rate Detection (Packets Per Second)
-- Upload Bandwidth Spike Detection
-- Download Bandwidth Spike Detection
-- TCP Port Scan Detection (Unique destination ports within a configurable time window)
-- TCP SYN Flood Detection (Large number of SYN packets within a configurable time window)
-- ICMP Flood Detection (Large number of ICMP packets within a configurable time window)
+- Packet Rate Monitoring
+- Bandwidth Spike Detection
+- Port Scan Detection
+- SYN Flood Detection
+- ICMP Flood Detection
+- DNS Flood Detection
+- Long DNS Query Detection
+- High Unique DNS Query Detection
+- ARP Spoofing Detection
+- DHCP Starvation Detection
+- Malicious IP Reputation Detection
 
-Detection parameters are centralized inside the `THRESHOLDS` dictionary, making the IDS easy to tune for different network environments.
+Detection parameters are centralized inside the `THRESHOLDS` dictionary, allowing quick tuning for different network environments.
+
+The malicious IP reputation engine loads a local threat intelligence database and flags communication originating from known malicious IP addresses.
 
 ---
 
@@ -141,21 +162,35 @@ Detection parameters are centralized inside the `THRESHOLDS` dictionary, making 
 NetScope/
 │
 ├── main.py
-├── packet_capture.py
-├── packet_parser.py
-├── packet_filter.py
-├── direction_detector.py
-├── packet_statistics.py
-├── connection_tracker.py
-├── bandwidth_monitor.py
-├── top_talkers.py
-├── threat_detector.py
-├── packet_logger.py
-├── alert_logger.py
-├── dashboard.py
-├── utils.py
+├── README.md
 ├── requirements.txt
-└── README.md
+├── .gitignore
+│
+├── core/
+│   ├── alert_logger.py
+│   ├── analyze_packet.py
+│   ├── bandwidth_monitor.py
+│   ├── connection_tracker.py
+│   ├── direction_detector.py
+│   ├── malicious_ip_loader.py
+│   ├── packet_capture.py
+│   ├── packet_filter.py
+│   ├── packet_logger.py
+│   ├── packet_parser.py
+│   ├── packet_statistics.py
+│   ├── threat_detector.py
+│   ├── top_talkers.py
+│   └── utils.py
+│
+├── gui/
+│   └── dashboard.py
+│
+├── database/
+│   └── Malicious_IP_Database.txt
+│
+└── logs/
+    ├── packet_logs.csv
+    └── alerts.csv
 ```
 
 ---
@@ -186,36 +221,36 @@ python main.py
 # Current Capabilities
 
 - Live packet capture
-- Modular packet processing pipeline
 - Real-time packet parsing
-- Real-time traffic monitoring
-- Active connection monitoring
-- Network bandwidth analysis
-- Upload & download speed calculation
-- Packets Per Second (PPS) monitoring
-- Top Talkers identification
+- TCP, UDP, ICMP, ARP & DHCP inspection
+- DNS query analysis
+- Active connection tracking
+- Upload & download bandwidth monitoring
+- Packet Rate (PPS) monitoring
+- Top Talkers analysis
 - Rule-based intrusion detection
-- Sliding time-window based threat detection
-- Configurable detection thresholds
+- Sliding time-window threat detection
+- Malicious IP reputation checking
 - Packet logging
-- Alert logging with threat start/end events
+- Threat event logging
+- Modular architecture
 
 ---
 
 # Future Enhancements
 
-- Professional GUI Dashboard
-- Configuration file support (JSON/YAML)
-- DNS anomaly detection
-- ARP Spoofing Detection
-- DHCP Starvation Detection
-- MAC Spoofing Detection
-- Threat Intelligence Integration
-- Interactive Traffic Visualization
-- Machine Learning based Anomaly Detection
-- Email/Desktop Alert Notifications
+- Professional GUI
+- Configuration File Support (JSON/YAML)
+- Threat Intelligence APIs (AbuseIPDB, AlienVault OTX, VirusTotal)
+- Geo-IP Mapping
+- Interactive Network Topology
+- Machine Learning Based Anomaly Detection
+- Windows Background Service
+- Email/Desktop Notifications
 - Automatic IP Blocking
 - Firewall Integration
+- Web-based Dashboard
+- SIEM Integration
 
 ---
 
@@ -223,17 +258,19 @@ python main.py
 
 Through this project, I strengthened my understanding of:
 
-- TCP/IP Networking
-- Packet Capture and Analysis
+- Computer Networking
+- TCP/IP Protocol Suite
+- Packet Capture & Analysis
+- Network Monitoring
 - Intrusion Detection Systems (IDS)
-- Network Traffic Monitoring
-- Rule-Based Threat Detection
+- Threat Intelligence
 - Sliding Window Algorithms
-- Real-time Event Logging
 - Bandwidth Analysis
+- Event Logging
 - Python Programming
 - Scapy Framework
 - Modular Software Design
+- Network Security Concepts
 
 ---
 
@@ -243,4 +280,6 @@ This project is intended for educational and research purposes.
 
 ---
 
-## Developed with dedication by Bagde Abhay Dipakkumar
+## Developed by
+
+**Bagde Abhay Dipakkumar**
