@@ -1,5 +1,8 @@
 import time
 # from core.packet_capture import capture_packets
+from PySide6.QtCore import QThread
+from PySide6.QtWidgets import QApplication
+from gui.app import NetScopeWindow
 from core.packet_parser import parse_packet
 from core.packet_analyzer import analyze_packet
 from core.packet_statistics import packet_statistics, print_statistics
@@ -17,6 +20,7 @@ from core.threat_detector import detect_threats
 from core.bandwidth_monitor import get_live_stats
 from core.alert_logger import initialize_alert_logger, close_alert_logger
 my_ip = get_myIP()
+
 # start_time = time.time()
 # packets = capture_packets()
 # end_time = time.time()
@@ -49,15 +53,31 @@ def process_packet(packet):
         detect_threats(pps, upload, download, parsed_data)
         refresh_dashboard(elapsed_time)
         last_refresh = current_time
+class CaptureThread(QThread):
+    def run(self):
+        live_capture(process_packet)
 
-try:  
+if __name__ == "__main__":
     initialize_logger()
     initialize_alert_logger()
-    print("Netscope starting...")
-    live_capture(process_packet)
-finally:
-    close_alert_logger()
-    close_logger()
+
+    capture_thread = CaptureThread()
+    capture_thread.start()
+
+    try:
+        app = QApplication([])
+
+        window = NetScopeWindow()
+        window.show()
+
+        app.exec()
+
+    finally:
+        capture_thread.quit()
+        capture_thread.wait()
+
+        close_alert_logger()
+        close_logger()
 #Static Network Dashboard
 
 # for packet in packets:

@@ -1,6 +1,24 @@
 from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QStackedWidget
-from PySide6.QtCore import Qt
+from core.bandwidth_monitor import bandwidth
+from PySide6.QtCore import Qt, QTimer
+from core.bandwidth_monitor import get_live_stats, format_speed
 class NetScopeWindow(QMainWindow):
+    def update_packet(self):
+        self.packet_value.setText(
+            str(bandwidth['total_packets'])
+        )
+
+        self.pps_value.setText(
+            f"{get_live_stats()[0]} packets/s"
+        )
+        
+        self.upload_value.setText(
+            format_speed(get_live_stats()[1])
+        )
+
+        self.download_value.setText(
+            format_speed(get_live_stats()[2])
+        )
 
     def __init__(self):
         super().__init__()
@@ -127,7 +145,6 @@ class NetScopeWindow(QMainWindow):
         self.packet_layout.addWidget(self.packet_title)
         self.packet_layout.addWidget(self.packet_value)
 
-
         self.pps_layout = QVBoxLayout()
         self.pps_card.setLayout(self.pps_layout)
         self.pps_title = QLabel("Packets/sec")
@@ -188,7 +205,9 @@ class NetScopeWindow(QMainWindow):
         self.download_layout.addWidget(self.download_title)
         self.download_layout.addWidget(self.download_value)
 
-
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_packet)
+        self.timer.start(1000)
 
         self.metrics_layout.addWidget(self.packet_card)
         self.metrics_layout.addWidget(self.pps_card)
@@ -398,13 +417,9 @@ class NetScopeWindow(QMainWindow):
         self.settings_button.clicked.connect(
             lambda: self.pages.setCurrentWidget(self.settings_page)
         )
-        self.dashboard_button.clicked.connect(
-            lambda: self.pages.setCurrentWidget(self.dashboard_page)
-        )
-
+      
         self.pages.setStyleSheet("""
             QWidget {
                 background-color: #181825;
             }
         """)
-        self.main_layout.addWidget(self.pages) 
