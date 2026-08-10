@@ -1,5 +1,6 @@
 top_talkers = {}
 def track_top_talkers(parsed_data):
+    global top_talkers
     if parsed_data is None:
         return 
     if parsed_data["direction"] == "Outgoing":
