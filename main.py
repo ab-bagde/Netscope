@@ -19,6 +19,7 @@ from core.packet_logger import log_packet, initialize_logger, close_logger
 from core.threat_detector import detect_threats
 from core.bandwidth_monitor import get_live_stats
 from core.alert_logger import initialize_alert_logger, close_alert_logger
+from core.recent_activity import track_recent_activity
 my_ip = get_myIP()
 
 # start_time = time.time()
@@ -42,7 +43,8 @@ def process_packet(packet):
         packet_statistics(parsed_data)
         track_connections(parsed_data)
         update_bandwidth(parsed_data)
-        track_top_talkers(parsed_data) 
+        track_top_talkers(parsed_data)
+        track_recent_activity(parsed_data) 
         log_packet(parsed_data)
 
     current_time = time.time()

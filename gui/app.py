@@ -2,23 +2,112 @@ from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QL
 from core.bandwidth_monitor import bandwidth
 from PySide6.QtCore import Qt, QTimer
 from core.bandwidth_monitor import get_live_stats, format_speed
+from pyqtgraph import PlotWidget
+from core.threat_detector import alerts
+from core.top_talkers import top_talkers, format_bytes
+from core.recent_activity import recent_activity
+import pyqtgraph as pg
+
+
+MAX_POINTS = 30
+class SpeedAxis(pg.AxisItem):
+
+    def tickStrings(self, values, scale, spacing):
+        return [
+            format_speed(value)
+            for value in values
+        ]
 class NetScopeWindow(QMainWindow):
     def update_packet(self):
         self.packet_value.setText(
             str(bandwidth['total_packets'])
         )
-
+        pps, upload, download = get_live_stats()
         self.pps_value.setText(
-            f"{get_live_stats()[0]} packets/s"
+            f"{pps} packets/s"
         )
         
         self.upload_value.setText(
-            format_speed(get_live_stats()[1])
+            format_speed(upload)
         )
 
         self.download_value.setText(
-            format_speed(get_live_stats()[2])
+            format_speed(download)
         )
+        self.elapsed_time += 1;
+        self.time_data.append(self.elapsed_time)
+        self.upload_data.append(upload)
+        self.download_data.append(download)
+
+        if len(self.time_data) > MAX_POINTS:
+            self.upload_data.pop(0)
+            self.download_data.pop(0)
+
+
+        self.time_data = list(range(len(self.upload_data)))
+        self.upload_plot.setData(
+        self.time_data,
+        self.upload_data
+        )
+
+        self.download_plot.setData(
+        self.time_data,
+        self.download_data
+        )
+
+        if self.upload_data:
+            self.plot_item.vb.setYRange(
+            0,
+            max(self.upload_data) * 1.1 + 1
+        )
+
+        if self.download_data:
+            self.download_view.setYRange(
+            0,
+            max(self.download_data) * 1.1 + 1
+        )
+
+        self.traffic_graph.setXRange(
+            0,
+            MAX_POINTS - 1
+        )
+
+        if alerts:
+            self.threat_monitoring_graph.setText(
+            "\n".join(alerts)
+        )
+        else:
+            self.threat_monitoring_graph.setText(
+            "✅ No threats detected"
+        )
+
+        sorted_talkers = sorted(
+        top_talkers.items(),
+        key=lambda x: x[1],
+        reverse=True
+        )
+
+        top3 = sorted_talkers[:3]
+
+        if top3:
+            text = "\n".join(
+            f"{ip} : {format_bytes(size)}"
+            for ip, size in top3
+            )
+            self.top_talkers_content.setText(text)
+        else:
+            self.top_talkers_content.setText("No traffic data")
+
+        if recent_activity:
+            self.recent_activity_content.setText(
+            "\n".join(recent_activity)
+        )
+        else:
+            self.recent_activity_content.setText(
+            "No recent activity"
+        )
+
+
 
     def __init__(self):
         super().__init__()
@@ -78,6 +167,10 @@ class NetScopeWindow(QMainWindow):
 
             QPushButton:hover {
              background-color: #3A3A4F;
+            }
+
+            QPushButton:pressed {
+            background-color: #30304A;
             }
         """)
 
@@ -205,10 +298,6 @@ class NetScopeWindow(QMainWindow):
         self.download_layout.addWidget(self.download_title)
         self.download_layout.addWidget(self.download_value)
 
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_packet)
-        self.timer.start(1000)
-
         self.metrics_layout.addWidget(self.packet_card)
         self.metrics_layout.addWidget(self.pps_card)
         self.metrics_layout.addWidget(self.upload_card)
@@ -247,13 +336,73 @@ class NetScopeWindow(QMainWindow):
         """)
         self.traffic_layout.addWidget(self.traffic_title)
 
-        self.traffic_graph = QLabel("Traffic Graph")
-        self.traffic_graph.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.time_data = []
+        self.upload_data = []
+        self.download_data = []
+        self.elapsed_time = 0;
+
+        self.upload_axis = SpeedAxis(orientation="left")
+        self.download_axis = SpeedAxis(orientation="right")
+        self.plot_item = pg.PlotItem(
+            axisItems = {
+                "left" : self.upload_axis,
+                "right" : self.download_axis
+            }
+        )
+        self.plot_item.showAxis("right")
+        self.traffic_graph = pg.PlotWidget(
+            plotItem = self.plot_item
+        )
+
+        self.download_view = pg.ViewBox()
+        self.plot_item.scene().addItem(self.download_view)
+        self.download_axis.linkToView(self.download_view)
+        self.download_view.setXLink(self.plot_item.vb)
+
+        def update_views():
+            self.download_view.setGeometry(
+            self.plot_item.vb.sceneBoundingRect()
+        )
+
+        self.plot_item.vb.sigResized.connect(update_views)
+        update_views()
+
+        self.traffic_graph.setTitle("Network Traffic")
+        self.upload_axis.setLabel(
+            "Upload Speed",
+            units="B/s"
+        )
+
+        self.download_axis.setLabel(
+            "Download Speed",
+            units="B/s"
+        )
+        self.traffic_graph.showGrid(x=True, y=True, alpha=0.3)
+        self.traffic_graph.addLegend()
+        self.legend = self.traffic_graph.plotItem.legend
+
+        self.legend.anchor(
+            itemPos=(1, 0),
+            parentPos=(1, 0),
+            offset=(2, 2)
+        )
+        self.upload_plot = self.traffic_graph.plot(
+            pen=pg.mkPen("#00FF88", width=2),
+            name="Upload"
+        )
+
+        self.download_plot = self.traffic_graph.plot(
+            pen=pg.mkPen("#4DA6FF", width=2),
+            name="Download"
+        )
+        self.download_view.addItem(self.download_plot)
         self.traffic_layout.addWidget(self.traffic_graph)
+        self.traffic_graph.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.traffic_graph.setStyleSheet("""
             color: #A6A6B8;
             font-size: 16px;
         """)
+
 
         self.threat_monitoring = QWidget()
         self.threat_layout = QVBoxLayout()
@@ -351,6 +500,11 @@ class NetScopeWindow(QMainWindow):
                 padding: 10px;
             }
         """)
+
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_packet)
+        self.timer.start(1000)
+
 
         self.dashboard_layout.setStretch(0, 1)
         self.dashboard_layout.setStretch(1, 1)
