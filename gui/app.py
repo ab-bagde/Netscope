@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QStackedWidget
+from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QStackedWidget, QLineEdit,QComboBox, QTableWidget, QHeaderView, QTableWidgetItem
 from core.bandwidth_monitor import bandwidth
 from PySide6.QtCore import Qt, QTimer
 from core.bandwidth_monitor import get_live_stats, format_speed
@@ -6,10 +6,13 @@ from pyqtgraph import PlotWidget
 from core.threat_detector import alerts
 from core.top_talkers import top_talkers, format_bytes
 from core.recent_activity import recent_activity
+from datetime import datetime
+import time
 import pyqtgraph as pg
 
 
 MAX_POINTS = 30
+MAX_PACKET_ROWS = 100
 class SpeedAxis(pg.AxisItem):
 
     def tickStrings(self, values, scale, spacing):
@@ -108,6 +111,88 @@ class NetScopeWindow(QMainWindow):
         )
 
 
+    def add_packet(self, parsed_data):
+        if parsed_data is None:
+            return
+
+        if self.packet_table.rowCount() > MAX_PACKET_ROWS -  1:
+            self.packet_table.removeRow(0)
+
+        row = self.packet_table.rowCount()
+        self.packet_table.insertRow(row)
+
+       
+
+        timestamp = datetime.fromtimestamp(
+            parsed_data.get("timestamp", 0)
+        ).strftime("%H:%M:%S")
+
+        values = [
+            timestamp,
+            parsed_data.get("src_ip", ""),
+            parsed_data.get("dst_ip", ""),
+            parsed_data.get("protocol", ""),
+            parsed_data.get("src_port", ""),
+            parsed_data.get("dst_port", ""),
+            parsed_data.get("service", ""),
+            format_bytes(parsed_data.get("size", 0))
+        ]
+
+        for column, value in enumerate(values):
+            item = QTableWidgetItem(str(value))
+            self.packet_table.setItem(row, column, item)
+
+        self.apply_filters()
+    # def search_packets(self, text):
+    #     text = text.lower().strip()
+    #     for row in range(self.packet_table.rowCount()):
+    #         match = False
+    #         for column in range(self.packet_table.columnCount()):
+    #             item = self.packet_table.item(row, column)
+    #             if item and text in item.text().lower():
+    #                 match = True
+    #                 break
+    #         self.packet_table.setRowHidden(row, not match)
+
+    def apply_filters(self):
+        search_text = self.packet_search.text().lower().strip()
+        proto = self.protocol_filter.currentText()
+        service = self.service_filter.currentText()
+
+        for row in range(self.packet_table.rowCount()):
+            row_protocol = self.packet_table.item(row, 3).text()
+            row_service = self.packet_table.item(row, 6).text()
+
+            search_match = False
+            for column in range(self.packet_table.columnCount()):
+                item = self.packet_table.item(row, column)
+                if item and search_text in item.text().lower():
+                    search_match = True
+                    break
+            proto_match = (
+                proto == "All Protocols" or proto == row_protocol
+            )
+
+            service_match = (
+                service == "All Services" or service == row_service
+            )
+
+            show = search_match and proto_match and service_match
+            self.packet_table.setRowHidden(row, not show)
+
+    
+    def show_details(self, row, col):
+        details = []
+        for col in range(self.packet_table.columnCount()):
+            header = self.packet_table.horizontalHeaderItem(col).text()
+            item = self.packet_table.item(row,col)
+
+            value = item.text() if item else " "
+            details.append(f"{header} : {value}")
+
+        self.packet_details_content.setText(
+            "\n".join(details)
+        )
 
     def __init__(self):
         super().__init__()
@@ -521,10 +606,208 @@ class NetScopeWindow(QMainWindow):
         self.pages.addWidget(self.dashboard_page)
 
 
-
-
-
         self.packets_page = QWidget()
+        self.packet_page_layout = QVBoxLayout()
+        self.packets_page.setLayout(self.packet_page_layout)
+
+        self.packets_header = QLabel("Network Packets")
+        self.packets_header.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            padding: 10px;
+        """)
+        self.packet_page_layout.addWidget(self.packets_header)
+        self.packets_subtitle = QLabel(
+            "Live network traffic captured by NetScope"
+            )
+        self.packets_subtitle.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            padding-left: 10px;
+            padding-bottom: 10px;
+        """)
+        self.packet_page_layout.addWidget(self.packets_subtitle)
+        self.packet_filter_layout = QHBoxLayout()
+
+        self.packet_filter_widget = QWidget()
+        self.packet_filter_layout = QHBoxLayout()
+        self.packet_filter_widget.setLayout(self.packet_filter_layout)
+        self.packet_page_layout.addWidget(self.packet_filter_widget)
+
+        self.packet_search = QLineEdit()
+        self.packet_search.setPlaceholderText(
+            "Search IP, protocol, service..."
+        )
+
+        self.protocol_filter = QComboBox()
+        self.protocol_filter.addItems([
+            "All Protocols",
+            "TCP",
+            "UDP",
+            "ICMP",
+            "ARP",
+            "DHCP"
+        ])
+
+        self.service_filter = QComboBox()
+        self.service_filter.addItems([
+            "All Services",
+            "HTTP",
+            "HTTPS",
+            "DNS",
+            "SSH",
+            "FTP",
+            "Telnet",
+            "SMTP",
+            "IMAP",
+            "POP3",
+            "mDNS"
+        ])
+
+        self.packet_search.textChanged.connect(
+            self.apply_filters
+        )
+        
+        self.protocol_filter.currentTextChanged.connect(
+            self.apply_filters
+        )
+        
+        self.service_filter.currentTextChanged.connect(
+            self.apply_filters
+        )
+        self.packet_filter_layout.addWidget(self.packet_search)
+        self.packet_filter_layout.addWidget(self.protocol_filter)
+        self.packet_filter_layout.addWidget(self.service_filter)
+
+        self.packet_filter_widget.setStyleSheet("""
+            QWidget {
+                background-color: #1E1E2F;
+                border-radius: 10px;
+            }
+        """)
+
+        self.packet_table = QTableWidget()
+
+        self.packet_table.setColumnCount(8)
+
+        self.packet_table.setHorizontalHeaderLabels([
+            "Time",
+            "Source IP",
+            "Destination IP",
+            "Protocol",
+            "Source Port",
+            "Destination Port",
+            "Service",
+            "Size"
+            ])
+
+        self.packet_page_layout.addWidget(self.packet_table)
+        self.packet_table.setAlternatingRowColors(True)
+
+        self.packet_table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows
+        )
+
+        self.packet_table.setEditTriggers(
+            QTableWidget.EditTrigger.NoEditTriggers
+        )
+
+        self.packet_table.setSortingEnabled(True)
+        header = self.packet_table.horizontalHeader()
+
+        header.setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        self.packet_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #1E1E2F;
+                color: white;
+                gridline-color: #3A3A4F;
+                border: none;
+                border-radius: 10px;
+                font-size: 13px;
+            }
+
+            QTableWidget::item:selected {
+                background-color: #3A3A4F;
+            }
+
+            QHeaderView::section {
+                background-color: #2B2B3C;
+                color: #A6A6B8;
+                padding: 8px;
+                border: none;
+                font-weight: bold;
+            }
+        """)
+
+        self.packet_details = QWidget()
+        self.packet_details_layout = QVBoxLayout()
+        self.packet_details.setLayout(self.packet_details_layout)
+
+        self.packet_details_title = QLabel("Packet Details")
+        self.packet_details_title.setStyleSheet("""
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        """)
+
+        self.packet_details_content = QLabel("Select a packet to view details")
+        self.packet_details_content.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+        """)
+
+        self.packet_details_layout.addWidget(
+            self.packet_details_title
+        )
+        self.packet_details_layout.addWidget(
+            self.packet_details_content
+        )
+
+        self.packet_page_layout.addWidget(
+            self.packet_details
+        )
+
+        self.packet_table.cellClicked.connect(
+            self.show_details
+        )
+       
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         self.pages.addWidget(self.packets_page)
 
         self.threats_page = QWidget()

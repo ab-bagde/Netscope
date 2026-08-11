@@ -1,6 +1,6 @@
 import time
 # from core.packet_capture import capture_packets
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import QApplication
 from gui.app import NetScopeWindow
 from core.packet_parser import parse_packet
@@ -55,23 +55,37 @@ def process_packet(packet):
         detect_threats(pps, upload, download, parsed_data)
         refresh_dashboard(elapsed_time)
         last_refresh = current_time
+
+    return parsed_data
 class CaptureThread(QThread):
+    packet_received = Signal(dict)
     def run(self):
-        live_capture(process_packet)
+        live_capture(self.handle_packet)
+
+    def handle_packet(self, packet):
+        parsed_data = process_packet(packet)
+
+        if parsed_data is not None:
+            self.packet_received.emit(parsed_data)
+        
 
 if __name__ == "__main__":
     initialize_logger()
     initialize_alert_logger()
 
-    capture_thread = CaptureThread()
-    capture_thread.start()
+    capture_thread = None
 
     try:
         app = QApplication([])
 
         window = NetScopeWindow()
         window.show()
+        capture_thread = CaptureThread()
 
+        capture_thread.packet_received.connect(
+            window.add_packet
+        )
+        capture_thread.start()
         app.exec()
 
     finally:
