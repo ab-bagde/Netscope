@@ -3,24 +3,43 @@ from core.bandwidth_monitor import bandwidth
 from PySide6.QtCore import Qt, QTimer
 from core.bandwidth_monitor import get_live_stats, format_speed
 from pyqtgraph import PlotWidget
-from core.threat_detector import alerts
+from core.threat_detector import alerts, threat_records
 from core.top_talkers import top_talkers, format_bytes
 from core.recent_activity import recent_activity
 from datetime import datetime
 import time
 import pyqtgraph as pg
 
-
 MAX_POINTS = 30
 MAX_PACKET_ROWS = 100
+MAX_THREAT_RECORDS = 100
 class SpeedAxis(pg.AxisItem):
-
     def tickStrings(self, values, scale, spacing):
         return [
             format_speed(value)
             for value in values
         ]
 class NetScopeWindow(QMainWindow):
+
+    def format_time_ago(self, timestamp):
+            elapsed = int(time.time() - timestamp)
+    
+            if elapsed < 60:
+                return f"{elapsed} sec ago"
+    
+            minutes = elapsed // 60
+    
+            if minutes < 60:
+                return f"{minutes} min ago"
+    
+            hours = minutes // 60
+    
+            if hours < 24:
+                return f"{hours} hr ago"
+    
+            days = hours // 24
+            return f"{days} day ago" if days == 1 else f"{days} days ago"   
+        
     def update_packet(self):
         self.packet_value.setText(
             str(bandwidth['total_packets'])
@@ -110,6 +129,37 @@ class NetScopeWindow(QMainWindow):
             "No recent activity"
         )
 
+        self.total_threats_value.setText(
+            f"{len(alerts)}"
+        )
+
+        self.total_threat_value.setText(
+            f"{len(threat_records)}"
+        )
+        
+        critical = sum(
+            1 for threat in threat_records
+            if threat["severity"] == "Critical"
+        )
+
+        high = sum(
+            1 for threat in threat_records
+            if threat["severity"] == "High"
+        )
+
+        self.critical_threats_value.setText(str(critical))
+        self.high_threats_value.setText(str(high))
+
+        if threat_records:
+            last_threat = threat_records[-1]
+            self.last_threat_value.setText(
+                self.format_time_ago(last_threat["timestamp"])
+            )
+        else:
+            self.last_threat_value.setText("None")
+
+        self.update_threat_table()
+
 
     def add_packet(self, parsed_data):
         if parsed_data is None:
@@ -129,8 +179,8 @@ class NetScopeWindow(QMainWindow):
 
         values = [
             timestamp,
-            parsed_data.get("src_ip", ""),
-            parsed_data.get("dst_ip", ""),
+            parsed_data.get("src_ip", parsed_data.get("sender_ip", "")),
+            parsed_data.get("dst_ip", parsed_data.get("target_ip", "")),
             parsed_data.get("protocol", ""),
             parsed_data.get("src_port", ""),
             parsed_data.get("dst_port", ""),
@@ -180,7 +230,33 @@ class NetScopeWindow(QMainWindow):
             show = search_match and proto_match and service_match
             self.packet_table.setRowHidden(row, not show)
 
-    
+    def update_threat_table(self):
+        self.threat_table.setRowCount(0)
+
+        for threat in threat_records[-MAX_THREAT_RECORDS:]:
+            row = self.threat_table.rowCount()
+            self.threat_table.insertRow(row)
+
+            timestamp = datetime.fromtimestamp(
+                threat["timestamp"]
+            ).strftime("%H:%M:%S")
+
+            values = [
+                timestamp,
+                threat["type"],
+                threat["source_ip"],
+                threat["destination_ip"],
+                threat["severity"],
+                threat["description"]
+            ]
+
+            for column, value in enumerate(values):
+                self.threat_table.setItem(
+                    row,
+                    column,
+                    QTableWidgetItem(str(value))
+                )
+        
     def show_details(self, row, col):
         details = []
         for col in range(self.packet_table.columnCount()):
@@ -193,6 +269,21 @@ class NetScopeWindow(QMainWindow):
         self.packet_details_content.setText(
             "\n".join(details)
         )
+
+    def show_threat_details(self, row, col):
+        details = []
+        for col in range(self.threat_table.columnCount()):
+            header = self.threat_table.horizontalHeaderItem(col).text()
+            item = self.threat_table.item(row,col)
+        
+            value = item.text() if item else " "
+            details.append(f"{header} : {value}")
+    
+        self.Threat_details_content.setText(
+            "\n".join(details)
+        )
+
+    
 
     def __init__(self):
         super().__init__()
@@ -773,46 +864,262 @@ class NetScopeWindow(QMainWindow):
         self.packet_table.cellClicked.connect(
             self.show_details
         )
-       
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
         self.pages.addWidget(self.packets_page)
 
-        self.threats_page = QWidget()
-        self.pages.addWidget(self.threats_page)
 
+        self.threats_page = QWidget()
+        self.threats_page_layout = QVBoxLayout()
+        self.threats_page.setLayout(self.threats_page_layout)
+        
+        self.threats_header = QLabel("Threat Monitoring")
+        self.threats_header.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            padding: 10px;
+        """)
+        self.threats_page_layout.addWidget(self.threats_header)
+        self.threats_subtitle = QLabel(
+            "Detected network threats and security alerts"
+            )
+        self.threats_subtitle.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            padding-left: 10px;
+            padding-bottom: 10px;
+            """)
+        self.threats_page_layout.addWidget(self.threats_subtitle)
+        self.threats_card = QWidget()
+        self.threats_card_layout = QHBoxLayout()
+        self.threats_card.setLayout(self.threats_card_layout)
+
+        self.total_threats = QWidget()
+        self.total_threats_layout = QVBoxLayout()
+        self.total_threats.setLayout(self.total_threats_layout)
+
+        self.total_threats_title = QLabel("Active Threats")
+        self.total_threats_value = QLabel("0")
+
+        self.total_threats_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.total_threats_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.total_threats_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+
+        self.total_threats_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+
+        self.total_threats_layout.addWidget(self.total_threats_title)
+        self.total_threats_layout.addWidget(self.total_threats_value)
+
+        self.total_threat = QWidget()
+        self.total_threat_layout = QVBoxLayout()
+        self.total_threat.setLayout(self.total_threat_layout)
+        
+        self.total_threat_title = QLabel("Total Threats")
+        self.total_threat_value = QLabel("0")
+        
+        self.total_threat_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.total_threat_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        self.total_threat_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        
+        self.total_threat_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+        
+        self.total_threat_layout.addWidget(self.total_threat_title)
+        self.total_threat_layout.addWidget(self.total_threat_value)
+
+        self.critical_threats = QWidget()
+        self.critical_threats_layout = QVBoxLayout()
+        self.critical_threats.setLayout(self.critical_threats_layout)
+
+        self.critical_threats_title = QLabel("Critical Threats")
+        self.critical_threats_value = QLabel("0")
+
+        self.critical_threats_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.critical_threats_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.critical_threats_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+
+        self.critical_threats_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+
+        self.critical_threats_layout.addWidget(self.critical_threats_title)
+        self.critical_threats_layout.addWidget(self.critical_threats_value)
+
+        self.high_threats = QWidget()
+        self.high_threats_layout = QVBoxLayout()
+        self.high_threats.setLayout(self.high_threats_layout)
+
+        self.high_threats_title = QLabel("High Threats")
+        self.high_threats_value = QLabel("0")
+        
+        self.high_threats_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.high_threats_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        self.high_threats_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        
+        self.high_threats_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+        
+        self.high_threats_layout.addWidget(self.high_threats_title)
+        self.high_threats_layout.addWidget(self.high_threats_value)
+        
+    
+        self.last_threat = QWidget()
+        self.last_threat_layout = QVBoxLayout()
+        self.last_threat.setLayout(self.last_threat_layout)
+
+        self.last_threat_title = QLabel("Last Threat")
+        self.last_threat_value = QLabel("0")
+                
+        self.last_threat_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.last_threat_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                
+        self.last_threat_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+                
+        self.last_threat_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+                
+        self.last_threat_layout.addWidget(self.last_threat_title)
+        self.last_threat_layout.addWidget(self.last_threat_value)
+
+        self.threats_card_layout.addWidget(self.total_threats)
+        self.threats_card_layout.addWidget(self.total_threat)
+        self.threats_card_layout.addWidget(self.critical_threats)
+        self.threats_card_layout.addWidget(self.high_threats)
+        self.threats_card_layout.addWidget(self.last_threat)
+
+        self.threats_page_layout.addWidget(self.threats_card)
+
+        self.total_threats.setObjectName("metricCard")
+        self.total_threat.setObjectName("metricCard")
+        self.critical_threats.setObjectName("metricCard")
+        self.high_threats.setObjectName("metricCard")
+        self.last_threat.setObjectName("metricCard")
+        
+        self.threats_card.setStyleSheet("""
+            QWidget#metricCard {
+            background-color: #1E1E2F;
+            border-radius: 10px;
+            padding: 10px;
+            }
+        """)
+
+        self.threat_table = QTableWidget()
+        self.threat_table.setColumnCount(6)
+        self.threat_table.setHorizontalHeaderLabels(
+            [
+                "Time",
+                "Threat",
+                "Source IP",
+                "Destination IP",
+                "Severity",
+                "Description"
+            ]
+        )
+        self.threats_page_layout.addWidget(self.threat_table)
+        self.threat_table.setAlternatingRowColors(True)
+
+        self.threat_table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows
+        )
+
+
+        self.threat_table.setEditTriggers(
+            QTableWidget.EditTrigger.NoEditTriggers
+        )
+        
+        self.threat_table.setSortingEnabled(True)
+        header = self.threat_table.horizontalHeader()
+        
+        header.setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        self.threat_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #1E1E2F;
+                color: white;
+                gridline-color: #3A3A4F;
+                border: none;
+                border-radius: 10px;
+                font-size: 13px;
+            }
+        
+            QTableWidget::item:selected {
+                background-color: #3A3A4F;
+            }
+        
+            QHeaderView::section {
+                background-color: #2B2B3C;
+                color: #A6A6B8;
+                padding: 8px;
+                border: none;
+                font-weight: bold;
+            }
+        """)
+
+        self.Threat_details = QWidget()
+        self.Threat_details_layout = QVBoxLayout()
+        self.Threat_details.setLayout(self.Threat_details_layout)
+    
+        self.Threat_details_title = QLabel("Threat Details")
+        self.Threat_details_title.setStyleSheet("""
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        """)
+    
+        self.Threat_details_content = QLabel("Select a packet to view details")
+        self.Threat_details_content.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+        """)
+        self.Threat_details_layout.addWidget(self.Threat_details_title)
+        self.Threat_details_layout.addWidget(self.Threat_details_content)
+        self.threats_page_layout.addWidget(self.Threat_details)
+        self.threat_table.cellClicked.connect(
+            self.show_threat_details
+        )
+    
+        self.pages.addWidget(self.threats_page)
+  
         self.statistics_page = QWidget()
         self.pages.addWidget(self.statistics_page)
 
