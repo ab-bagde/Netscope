@@ -2,8 +2,9 @@ from collections import deque
 from core.alert_logger import alerts_logger
 from core.malicious_ip_loader import load_malicious_ip
 malicious_ip_dataset = load_malicious_ip()
-
+import time
 alerts = []
+threat_records = []
 active_alerts = set()
 port_history = {}
 syn_counter = {}
@@ -13,9 +14,9 @@ domain_counter = {}
 mac_table = {}
 dhcp_history = deque()
 THRESHOLDS = {
-    "pps": 150,
-    "upload": 20 * 1024 * 1024,
-    "download": 50 * 1024 * 1024,
+    "pps": 5,
+    "upload": 20,
+    "download": 50,
     "port_scan": 5,
     "syn_flood": 100,
     "icmp_flood": 100,
@@ -42,6 +43,14 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
         if key not in active_alerts:
             active_alerts.add(key)
             alerts_logger("High Packet Rate", src_id, dst_id, f"{packet_speed} PPS", "Started")
+            threat_records.append({
+                 "type" : "High Packet Rate",
+                 "source_ip" : src_id ,
+                 "destination_ip": dst_id ,
+                 "severity" : "Low",
+                 "description" : f"{packet_speed} PPS",
+                 "timestamp" : time.time()
+            })
     elif key in active_alerts:
         active_alerts.remove(key)
         alerts_logger("High Packet Rate", src_id, dst_id, "Normal", "Ended")
@@ -54,6 +63,14 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
         if key not in active_alerts:
             active_alerts.add(key)
             alerts_logger("Upload spike", src_id, dst_id, f"{upload_speed/(1024*1024):.2f} MB/s", "Started")
+            threat_records.append({
+                             "type" : "Upload spike",
+                             "source_ip" : src_id,
+                             "destination_ip": dst_id,
+                             "severity" : "Low",
+                             "description" :  f"{upload_speed/(1024*1024):.2f} MB/s",
+                             "timestamp" : time.time()
+                        })
     elif key in active_alerts:
          active_alerts.remove(key)
          alerts_logger("Upload spike", src_id, dst_id, "Normal", "Ended")
@@ -66,6 +83,14 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
             if key not in active_alerts:
                       active_alerts.add(key)
                       alerts_logger("Download spike", src_id, dst_id, f"{download_speed/(1024*1024):.2f} MB/s", "Started")
+                      threat_records.append({
+                                       "type" : "Download spike",
+                                       "source_ip" : src_id,
+                                       "destination_ip": dst_id ,
+                                       "severity" : "Low",
+                                       "description" : f"{download_speed/(1024*1024):.2f} MB/s",
+                                       "timestamp" : time.time()
+                                  })
     elif key in active_alerts:
         active_alerts.remove(key)
         alerts_logger("Download spike", src_id, dst_id, "Normal", "Ended")
@@ -101,6 +126,14 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
             if key not in active_alerts:
                 active_alerts.add(key)
                 alerts_logger("Port scan", src_ip, dst_ip, f"{len(unique_ports)} unique ports", "Started")
+                threat_records.append({
+                                 "type" : "Port scan",
+                                 "source_ip" : src_ip,
+                                 "destination_ip": dst_ip,
+                                 "severity" : "High",
+                                 "description" : f"{len(unique_ports)} unique ports",
+                                 "timestamp" : time.time()
+                            })
         elif key in active_alerts:
             active_alerts.remove(key)
             alerts_logger("Port scan", src_ip, dst_ip, "Normal", "Ended")
@@ -127,6 +160,14 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
                 if key not in active_alerts:
                         active_alerts.add(key)
                         alerts_logger("SYN Flood", src_ip, dst_ip, f"{len(syn_history)}) SYN packets", "Started")
+                        threat_records.append({
+                                         "type" : "SYN Flood",
+                                         "source_ip" : src_ip ,
+                                         "destination_ip": dst_ip ,
+                                         "severity" : "High",
+                                         "description" : f"{len(syn_history)}) SYN packets",
+                                         "timestamp" : time.time()
+                                    })
             elif key in active_alerts:
                 active_alerts.remove(key)
                 alerts_logger("SYN Flood", src_ip, dst_ip, "Normal", "Ended")
@@ -157,6 +198,14 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
                 if key not in active_alerts:
                     active_alerts.add(key)
                     alerts_logger("ICMP Flood", src_ip, dst_ip, f"{len(icmp_history)}) ICMP packets", "Started")
+                    threat_records.append({
+                                     "type" : "ICMP Flood",
+                                     "source_ip" : src_ip ,
+                                     "destination_ip": dst_ip ,
+                                     "severity" : "High",
+                                     "description" : f"{len(icmp_history)}) ICMP packets",
+                                     "timestamp" : time.time()
+                                })
             elif key in active_alerts:
                     active_alerts.remove(key)
                     alerts_logger("ICMP Flood", src_ip, dst_ip, "Normal", "Ended")
@@ -185,6 +234,14 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
              if key not in active_alerts:
                    active_alerts.add(key)
                    alerts_logger("DNS Flood",src_ip, dst_ip, f"{len(dns_history)} DNS requests","Started")
+                   threat_records.append({
+                                    "type" : "DNS Flood",
+                                    "source_ip" : src_ip ,
+                                    "destination_ip": dst_ip ,
+                                    "severity" : "Medium",
+                                    "description" : f"{len(dns_history)} DNS requests",
+                                    "timestamp" : time.time()
+                               })
         elif key in active_alerts:
              active_alerts.remove(key)
              alerts_logger("DNS Flood",src_ip, dst_ip, "Normal","Ended")
@@ -203,6 +260,14 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
             if key not in active_alerts:
                 active_alerts.add(key)
                 alerts_logger("Long DNS Query", src_ip, dst_ip, domain_name, "Started")
+                threat_records.append({
+                                 "type" : "Long DNS Query",
+                                 "source_ip" : src_ip,
+                                 "destination_ip": dst_ip,
+                                 "severity" : "Medium",
+                                 "description" :  domain_name,
+                                 "timestamp" : time.time()
+                            })
         elif key in active_alerts:
             active_alerts.remove(key)
             alerts_logger("Long DNS Query", src_ip, dst_ip, "Normal", "Ended")
@@ -238,6 +303,14 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
                     if key not in active_alerts:
                         active_alerts.add(key)
                         alerts_logger("Suspicious DNS Activity", src_ip, dst_ip, f"{len(unique_domain)} unique domains","Started")
+                        threat_records.append({
+                                         "type" : "Suspicious DNS Activity",
+                                         "source_ip" : src_ip,
+                                         "destination_ip": dst_ip,
+                                         "severity" : "Medium",
+                                         "description" : f"{len(unique_domain)} unique domains",
+                                         "timestamp" : time.time()
+                                    })
         elif key in active_alerts:
                     active_alerts.remove(key)
                     alerts_logger("Suspicious DNS Activity", src_ip, dst_ip, "Normal", "Ended")
@@ -255,6 +328,14 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
                 if key not in active_alerts:
                     active_alerts.add(key)
                     alerts_logger("ARP Spoofing", sender_ip, dest_ip, f"changed MAC from {mac_table[sender_ip]} To {sender_mac}", "Started")
+                    threat_records.append({
+                                     "type" : "ARP Spoofing",
+                                     "source_ip" : sender_ip ,
+                                     "destination_ip": dest_ip,
+                                     "severity" : "Critical",
+                                     "description" : f"changed MAC from {mac_table[sender_ip]} To {sender_mac}",
+                                     "timestamp" : time.time()
+                                })
             elif sender_mac == mac_table[sender_ip]:
                 if key in active_alerts:
                     active_alerts.remove(key)
@@ -285,21 +366,49 @@ def detect_threats(packet_speed, upload_speed, download_speed, parsed_data):
                 if key not in active_alerts:
                     active_alerts.add(key)
                     alerts_logger("DHCP Starvation Possible", src_mac, "DHCP Server", f"{len(unique_mac_address)} unique MACs", "Started")
+                    threat_records.append({
+                                     "type" : "DHCP Starvation Possible",
+                                     "source_ip" : src_mac,
+                                     "destination_ip": "DHCP Server",
+                                     "severity" : "Critical",
+                                     "description" : f"{len(unique_mac_address)} unique MACs" ,
+                                     "timestamp" : time.time()
+                                })
             elif key in active_alerts:
                 active_alerts.remove(key)
                 alerts_logger("DHCP Starvation Possible", src_mac, "DHCP Server", "Normal", "Ended")
 
     if parsed_data is not None:
-         src_ip = parsed_data.get("src_ip")
-
-         if src_ip in malicious_ip_dataset:
+        src_ip = parsed_data.get("src_ip")
+        key = ("Malicious IP", src_ip)
+        if src_ip in malicious_ip_dataset: 
             info = malicious_ip_dataset[src_ip]
             alerts.append(
                     f"🚨 Malicious IP ({src_ip}) [{info['severity']}] - {info['threat']}"
                 )
-            alerts_logger(
-                "Malicious IP",src_ip, parsed_data["dst_ip"],f"{info['threat']} | {info['severity']} | {info['source']}","Detected"
+            if key not in active_alerts:
+                active_alerts.add(key)
+                alerts_logger(
+                    "Malicious IP",src_ip, parsed_data["dst_ip"],f"{info['threat']} | {info['severity']} | {info['source']}","Detected"
                 )
+                threat_records.append({
+                "type" :  "Malicious IP",
+                "source_ip" : src_ip,
+                "destination_ip": parsed_data["dst_ip"],
+                "severity" : "Critical",
+                "description" : f"Malicious IP ({src_ip}) [{info['severity']}] - {info['threat']}" ,
+                "timestamp" : time.time()
+                })
+            elif key in active_alerts:
+                active_alerts.remove(key)
+                alerts_logger(
+                "Malicious IP",
+                src_ip,
+                parsed_data["dst_ip"],
+                "Normal",
+                "Ended"
+                    )
+
 
             
 def print_alerts():
