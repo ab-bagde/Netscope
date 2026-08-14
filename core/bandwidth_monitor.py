@@ -33,6 +33,7 @@ def update_live_speed():
 def update_bandwidth(parsed_packet):
     if parsed_packet is None:
         return
+    print("PACKET SIZE:", parsed_packet["size"])
     bandwidth["total_bytes"] += parsed_packet["size"]
     bandwidth["total_packets"] += 1
 
@@ -45,7 +46,10 @@ def update_bandwidth(parsed_packet):
         bandwidth["largest_packet_size"] = parsed_packet["size"]
     if parsed_packet["size"] < bandwidth["smallest_packet_size"]:
         bandwidth["smallest_packet_size"] = parsed_packet["size"]  
-
+    print(
+        "MIN:", bandwidth["smallest_packet_size"],
+        "MAX:", bandwidth["largest_packet_size"]
+    )
 
 def format_speed(speed):
     if speed < 1024:
@@ -54,7 +58,16 @@ def format_speed(speed):
         return f"{speed/1024:.2f} KB/s"
     else:
         return f"{speed/(1024 * 1024):.2f} MB/s"
-    
+
+def format_data(data):
+        if data < 1024:
+            return f"{data} B"
+        elif data < 1024 * 1024:
+            return f"{data/1024:.2f} KB"
+        else:
+            return f"{data/(1024*1024):.2f} MB"
+
+
 def calculate_speed(elapsed_speed):
     if elapsed_speed <= 0:
         return "0 B/s"

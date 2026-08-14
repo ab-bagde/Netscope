@@ -1,12 +1,13 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QStackedWidget, QLineEdit,QComboBox, QTableWidget, QHeaderView, QTableWidgetItem
+from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QStackedWidget, QLineEdit,QComboBox,QGridLayout, QTableWidget, QHeaderView, QTableWidgetItem
 from core.bandwidth_monitor import bandwidth
 from PySide6.QtCore import Qt, QTimer
-from core.bandwidth_monitor import get_live_stats, format_speed
+from core.bandwidth_monitor import get_live_stats, format_speed, format_data
 from pyqtgraph import PlotWidget
 from core.threat_detector import alerts, threat_records
 from core.top_talkers import top_talkers, format_bytes
 from core.recent_activity import recent_activity
 from datetime import datetime
+from core.packet_statistics import stats
 import time
 import pyqtgraph as pg
 
@@ -19,6 +20,28 @@ class SpeedAxis(pg.AxisItem):
             format_speed(value)
             for value in values
         ]
+class ProtocolAxis(pg.AxisItem):
+    def __init__(self, protocols, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.protocols = protocols
+
+        self.setPen(pg.mkPen("#F9F9F5"))
+        self.setTextPen(pg.mkPen("#F9F9F5"))
+
+    def tickStrings(self, values, scale, spacing):
+        return [
+            self.protocols[int(value)]
+            if 0 <= int(value) < len(self.protocols)
+            else ""
+            for value in values
+        ]
+
+class EditAxis(pg.AxisItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.setPen(pg.mkPen("#F9F9F5"))
+        self.setTextPen(pg.mkPen("#F9F9F5"))
 class NetScopeWindow(QMainWindow):
 
     def format_time_ago(self, timestamp):
@@ -39,7 +62,7 @@ class NetScopeWindow(QMainWindow):
     
             days = hours // 24
             return f"{days} day ago" if days == 1 else f"{days} days ago"   
-        
+
     def update_packet(self):
         self.packet_value.setText(
             str(bandwidth['total_packets'])
@@ -158,8 +181,51 @@ class NetScopeWindow(QMainWindow):
         else:
             self.last_threat_value.setText("None")
 
+        self.tpacket_value.setText(
+            str(bandwidth['total_packets'])
+        )
+        self.data_value.setText(
+           format_data(bandwidth['total_bytes'])
+        )
+        self.upload_data_value.setText(
+            format_data(bandwidth['upload_bytes'])
+        )
+        self.download_data_value.setText(
+            format_data(bandwidth['download_bytes'])
+        )
+        self.smallest_value.setText(
+            format_data(bandwidth['smallest_packet_size'])
+        )
+        self.largest_value.setText(
+            format_data(bandwidth['largest_packet_size'])
+        )
         self.update_threat_table()
 
+
+        self.protocol_values = [
+            stats.get("TCP_packets", 0),
+            stats.get("UDP_packets", 0),
+            stats.get("ICMP_packets", 0),
+            stats.get("DNS_packets", 0),
+            stats.get("mDNS_packets", 0),
+            
+        ]
+
+        self.protocol_bar.setOpts(
+            height = self.protocol_values
+        )
+
+        self.service_values = [
+            stats.get("HTTP_packets", 0),
+            stats.get("HTTPS_packets", 0),
+            stats.get("DNS_packets", 0),
+            stats.get("SSH_packets", 0),
+            stats.get("FTP_packets", 0)
+        ]
+
+        self.service_bar.setOpts(
+            height=self.service_values
+        )
 
     def add_packet(self, parsed_data):
         if parsed_data is None:
@@ -1117,10 +1183,255 @@ class NetScopeWindow(QMainWindow):
         self.threat_table.cellClicked.connect(
             self.show_threat_details
         )
-    
         self.pages.addWidget(self.threats_page)
   
+
         self.statistics_page = QWidget()
+        self.statistics_page_layout = QVBoxLayout()
+        self.statistics_page.setLayout(self.statistics_page_layout)
+        
+        self.statistics_header = QLabel("Statistics")
+        self.statistics_header.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            padding: 10px;
+        """)
+        self.statistics_page_layout.addWidget(self.statistics_header)
+        self.statistics_subtitle = QLabel(
+            "Network traffic, protocol and threat analysis"
+            )
+        self.statistics_subtitle.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            padding-left: 10px;
+            padding-bottom: 10px;
+            """)
+        self.statistics_page_layout.addWidget(self.statistics_subtitle)
+
+        self.info_section = QWidget()
+        self.info_layout = QGridLayout()
+        self.info_section.setLayout(self.info_layout)
+        self.statistics_page_layout.addWidget(self.info_section)
+
+        self.tpacket_card = QWidget()
+        self.data_card = QWidget()
+        self.upload_data_card = QWidget()
+        self.download_data_card = QWidget()
+        self.smallest_card = QWidget()
+        self.largest_card = QWidget()
+
+        self.tpacket_layout = QVBoxLayout()
+        self.tpacket_card.setLayout(self.tpacket_layout)
+        self.tpacket_title = QLabel("Total Packets")
+        self.tpacket_value = QLabel("0")
+        self.tpacket_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.tpacket_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.tpacket_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        self.tpacket_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+        self.tpacket_layout.addWidget(self.tpacket_title)
+        self.tpacket_layout.addWidget(self.tpacket_value)
+
+        self.data_layout = QVBoxLayout()
+        self.data_card.setLayout(self.data_layout)
+        self.data_title = QLabel("Total Data")
+        self.data_value = QLabel("0")
+        self.data_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.data_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.data_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        self.data_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+        self.data_layout.addWidget(self.data_title)
+        self.data_layout.addWidget(self.data_value)
+
+        self.upload_data_layout = QVBoxLayout()
+        self.upload_data_card.setLayout(self.upload_data_layout)
+        self.upload_data_title = QLabel("Uploaded")
+        self.upload_data_value = QLabel("0 B")
+        self.upload_data_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.upload_data_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.upload_data_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        self.upload_data_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+        self.upload_data_layout.addWidget(self.upload_data_title)
+        self.upload_data_layout.addWidget(self.upload_data_value)
+        
+        self.download_data_layout = QVBoxLayout()
+        self.download_data_card.setLayout(self.download_data_layout)
+        self.download_data_title = QLabel("Downloaded")
+        self.download_data_value = QLabel("0 B")
+        self.download_data_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.download_data_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.download_data_title.setStyleSheet("""
+                    color: #A6A6B8;
+                    font-size: 14px;
+                    font-weight: bold;
+                """)
+        self.download_data_value.setStyleSheet("""
+                    color: white;
+                    font-size: 28px;
+                    font-weight: bold;
+                """)
+        self.download_data_layout.addWidget(self.download_data_title)
+        self.download_data_layout.addWidget(self.download_data_value)
+        
+        self.smallest_layout = QVBoxLayout()
+        self.smallest_card.setLayout(self.smallest_layout)
+        self.smallest_title = QLabel("Smallest")
+        self.smallest_value = QLabel("0 B")
+        self.smallest_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.smallest_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.smallest_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        self.smallest_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+        self.smallest_layout.addWidget(self.smallest_title)
+        self.smallest_layout.addWidget(self.smallest_value)
+
+        self.largest_layout = QVBoxLayout()
+        self.largest_card.setLayout(self.largest_layout)
+        self.largest_title = QLabel("Longest")
+        self.largest_value = QLabel("0 B")
+        self.largest_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.largest_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.largest_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        self.largest_value.setStyleSheet("""
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        """)
+        self.largest_layout.addWidget(self.largest_title)
+        self.largest_layout.addWidget(self.largest_value)
+
+        self.info_layout.addWidget(self.tpacket_card, 0, 0)
+        self.info_layout.addWidget(self.data_card, 0, 1)
+        self.info_layout.addWidget(self.upload_data_card, 0, 2)
+        self.info_layout.addWidget(self.download_data_card, 1, 0)
+        self.info_layout.addWidget(self.smallest_card, 1, 1)
+        self.info_layout.addWidget(self.largest_card, 1, 2)
+
+        self.info_layout.setHorizontalSpacing(12)
+        self.info_layout.setVerticalSpacing(12)
+        self.info_layout.setContentsMargins(0, 5, 0, 10)
+
+        self.info_section.setStyleSheet("""
+            QWidget#metricCard {
+            background-color: #1E1E2F;
+            border-radius: 10px;
+            padding: 10px;
+            }
+        """)
+
+        self.main_field = QWidget()
+        self.main_field_layout = QHBoxLayout()
+        self.main_field.setLayout(self.main_field_layout)
+
+
+        protocols = ["TCP", "UDP", "ICMP", "DNS", "mDNS"]
+        self.proto_axis = ProtocolAxis(
+            protocols,
+            orientation = "bottom"
+        )
+
+        self.proto_y_axis = EditAxis(
+            orientation = "left"
+        )
+        self.protocol_graph = pg.PlotWidget(
+            axisItems = {
+                "bottom":self.proto_axis,
+                "left" : self.proto_y_axis
+            }
+        )
+        self.protocol_graph.setTitle("Packets by Protocol")
+        self.protocol_graph.showGrid(x=True, y=True, alpha=0.3)
+       
+       
+        self.protocol_values = [0, 0, 0, 0, 0]
+        x = list(range(len(protocols)))
+        self.protocol_bar = pg.BarGraphItem(
+            x = x,
+            height=self.protocol_values,
+            width = 0.4,
+            brush="#4DA6FF"
+        )
+        self.protocol_graph.addItem(self.protocol_bar)
+
+
+        services = ["HTTP", "HTTPS", "DNS", "SSH", "FTP"]
+        self.service_axis = ProtocolAxis(
+            services,
+            orientation = "bottom"
+        )
+        
+        self.service_y_axis = EditAxis(
+            orientation = "left"
+            )
+        self.service_graph = pg.PlotWidget(
+             axisItems = {
+                "bottom":self.service_axis,
+                "left" : self.service_y_axis
+            }
+        )
+        self.service_graph.setTitle("Packets by Service")
+        self.service_graph.showGrid(x=True, y=True, alpha=0.3)
+        self.service_values = [0, 0, 0, 0, 0]
+        self.service_bar = pg.BarGraphItem(
+            x = list(range(len(services))),
+            height=self.service_values,
+            width = 0.4,
+            brush="#4DA6FF"
+        )
+        self.service_graph.addItem(self.service_bar)
+        self.main_field_layout.addWidget(self.protocol_graph)
+        self.main_field_layout.addWidget(self.service_graph)
+
+
+        self.statistics_page_layout.addWidget(self.main_field)
+
+
+
+
+
+
+
+
+
+
+
+
+
         self.pages.addWidget(self.statistics_page)
 
         self.top_talkers_page = QWidget()
