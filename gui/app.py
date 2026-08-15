@@ -214,6 +214,15 @@ class NetScopeWindow(QMainWindow):
         self.protocol_bar.setOpts(
             height = self.protocol_values
         )
+        for i, label in enumerate(self.proto_labels):
+            label.setText(str(self.protocol_values[i]))
+            label.setPos(i, self.protocol_values[i] + 2)
+
+
+        self.protocol_graph.setYRange(
+            0,
+            max(self.protocol_values) * 1.2
+        )
 
         self.service_values = [
             stats.get("HTTP_packets", 0),
@@ -226,6 +235,15 @@ class NetScopeWindow(QMainWindow):
         self.service_bar.setOpts(
             height=self.service_values
         )
+
+        for i, label in enumerate(self.service_labels):
+            label.setText(str(self.service_values[i]))
+            label.setPos(i, self.service_values[i] + 2)
+                
+        self.service_graph.setYRange(
+            0,
+            max(self.service_values) * 1.2
+            )
 
     def add_packet(self, parsed_data):
         if parsed_data is None:
@@ -1346,6 +1364,13 @@ class NetScopeWindow(QMainWindow):
         self.info_layout.setVerticalSpacing(12)
         self.info_layout.setContentsMargins(0, 5, 0, 10)
 
+        self.tpacket_card.setObjectName("metricCard")
+        self.data_card.setObjectName("metricCard")
+        self.upload_data_card.setObjectName("metricCard")
+        self.download_data_card.setObjectName("metricCard")
+        self.smallest_card.setObjectName("metricCard")
+        self.largest_card.setObjectName("metricCard")
+
         self.info_section.setStyleSheet("""
             QWidget#metricCard {
             background-color: #1E1E2F;
@@ -1358,7 +1383,28 @@ class NetScopeWindow(QMainWindow):
         self.main_field_layout = QHBoxLayout()
         self.main_field.setLayout(self.main_field_layout)
 
+        self.proto_overview = QWidget()
+        self.proto_layout = QVBoxLayout()
+        self.proto_overview.setLayout(self.proto_layout)
+        self.proto_title = QLabel("Protocol Distribution")
+        self.proto_title.setStyleSheet("""
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        """)
+        self.proto_layout.addWidget(self.proto_title)
 
+        self.service_overview = QWidget()
+        self.service_layout = QVBoxLayout()
+        self.service_overview.setLayout(self.service_layout)
+        self.service_title = QLabel("Service Distribution")
+        self.service_title.setStyleSheet("""
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        """)
+        self.service_layout.addWidget(self.service_title)
+        
         protocols = ["TCP", "UDP", "ICMP", "DNS", "mDNS"]
         self.proto_axis = ProtocolAxis(
             protocols,
@@ -1367,6 +1413,12 @@ class NetScopeWindow(QMainWindow):
 
         self.proto_y_axis = EditAxis(
             orientation = "left"
+        )
+        self.proto_axis.setLabel(
+            "Protocol"
+        )
+        self.proto_y_axis.setLabel(
+            "Packet count"
         )
         self.protocol_graph = pg.PlotWidget(
             axisItems = {
@@ -1387,7 +1439,16 @@ class NetScopeWindow(QMainWindow):
             brush="#4DA6FF"
         )
         self.protocol_graph.addItem(self.protocol_bar)
-
+        self.proto_labels = []
+        for i, protocol in enumerate(protocols):
+            label = pg.TextItem(
+                text = "0",
+                color="#F9F9F5",
+                anchor=(0.5, 1)
+            )
+            self.proto_labels.append(label)
+            self.protocol_graph.addItem(label)
+            label.setPos(i, self.protocol_values[i] + 2)
 
         services = ["HTTP", "HTTPS", "DNS", "SSH", "FTP"]
         self.service_axis = ProtocolAxis(
@@ -1397,7 +1458,13 @@ class NetScopeWindow(QMainWindow):
         
         self.service_y_axis = EditAxis(
             orientation = "left"
-            )
+        )
+        self.service_axis.setLabel(
+            "Service"
+        )
+        self.service_y_axis.setLabel(
+            "Packet count"
+        )
         self.service_graph = pg.PlotWidget(
              axisItems = {
                 "bottom":self.service_axis,
@@ -1414,24 +1481,24 @@ class NetScopeWindow(QMainWindow):
             brush="#4DA6FF"
         )
         self.service_graph.addItem(self.service_bar)
-        self.main_field_layout.addWidget(self.protocol_graph)
-        self.main_field_layout.addWidget(self.service_graph)
+        self.service_labels = []
+        for i, service in enumerate(services):
+            label = pg.TextItem(
+                text = "0",
+                color="#F9F9F5",
+                anchor=(0.5, 1)
+            )
+            self.service_labels.append(label)
+            self.service_graph.addItem(label)
+            label.setPos(i, self.service_values[i] + 2)
 
+        self.proto_layout.addWidget(self.protocol_graph)
+        self.main_field_layout.addWidget(self.proto_overview)
+
+        self.service_layout.addWidget(self.service_graph)
+        self.main_field_layout.addWidget(self.service_overview)
 
         self.statistics_page_layout.addWidget(self.main_field)
-
-
-
-
-
-
-
-
-
-
-
-
-
         self.pages.addWidget(self.statistics_page)
 
         self.top_talkers_page = QWidget()

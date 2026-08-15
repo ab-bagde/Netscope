@@ -4,7 +4,8 @@ ALLOWED_SERVICES = [
     "DNS",
     "SSH",
     "FTP",
-    "mDNS"
+    "mDNS",
+    "ICMP"
 ]
 def filter_packets(parsed_packet):
     if parsed_packet is None:

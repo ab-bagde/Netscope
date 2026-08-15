@@ -10,6 +10,7 @@ stats = {
     "mDNS_packets": 0,
 }
 def packet_statistics(parsed_packet):
+    global stats
     if parsed_packet is None:
         return
     stats["total_packets"]+=1
