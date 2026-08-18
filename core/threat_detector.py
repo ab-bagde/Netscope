@@ -14,10 +14,10 @@ domain_counter = {}
 mac_table = {}
 dhcp_history = deque()
 THRESHOLDS = {
-    "pps": 5,
-    "upload": 20,
-    "download": 50,
-    "port_scan": 5,
+    "pps": 180,
+    "upload": 20*1024*1024,
+    "download": 50*1024*1024,
+    "port_scan": 20,
     "syn_flood": 100,
     "icmp_flood": 100,
     "dns_flood":75,

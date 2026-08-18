@@ -46,10 +46,7 @@ def update_bandwidth(parsed_packet):
         bandwidth["largest_packet_size"] = parsed_packet["size"]
     if parsed_packet["size"] < bandwidth["smallest_packet_size"]:
         bandwidth["smallest_packet_size"] = parsed_packet["size"]  
-    print(
-        "MIN:", bandwidth["smallest_packet_size"],
-        "MAX:", bandwidth["largest_packet_size"]
-    )
+        
 
 def format_speed(speed):
     if speed < 1024:

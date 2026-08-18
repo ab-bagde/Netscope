@@ -3,6 +3,7 @@ from core.bandwidth_monitor import bandwidth
 from PySide6.QtCore import Qt, QTimer
 from core.bandwidth_monitor import get_live_stats, format_speed, format_data
 from pyqtgraph import PlotWidget
+from core.connection_tracker import connections
 from core.threat_detector import alerts, threat_records
 from core.top_talkers import top_talkers, format_bytes
 from core.recent_activity import recent_activity
@@ -14,6 +15,7 @@ import pyqtgraph as pg
 MAX_POINTS = 30
 MAX_PACKET_ROWS = 100
 MAX_THREAT_RECORDS = 100
+MAX_CONNECTION_RECORDS = 100
 class SpeedAxis(pg.AxisItem):
     def tickStrings(self, values, scale, spacing):
         return [
@@ -200,7 +202,7 @@ class NetScopeWindow(QMainWindow):
             format_data(bandwidth['largest_packet_size'])
         )
         self.update_threat_table()
-
+     
 
         self.protocol_values = [
             stats.get("TCP_packets", 0),
@@ -244,6 +246,61 @@ class NetScopeWindow(QMainWindow):
             0,
             max(self.service_values) * 1.2
             )
+        self.host_value.setText(
+            str(len(top_talkers))
+        )
+
+        total_data = sum(top_talkers.values())
+
+        self.data_value.setText(
+            format_bytes(total_data)
+        )
+
+        if top_talkers:
+            top_ip = max(
+            top_talkers,
+            key=top_talkers.get
+        )
+
+            self.top_value.setText(top_ip)
+        else:
+            self.top_value.setText("None")
+
+
+        top10 = sorted_talkers[:10]
+        for i in range(10):
+            if i < len(top10):
+                ip, data = top10[i]
+
+                self.top_ip[9-i] = ip
+                self.data_values[9-i] = data
+
+            else:
+                self.top_ip[i] = f"IP{i + 1}"
+                self.data_values[i] = 0
+        x = [value / 2 for value in self.data_values]
+        self.top_bar.setOpts(
+            x=x,
+            width=self.data_values
+        )
+        max_data = max(self.data_values) if self.data_values else 1
+        left_margin = max_data * 0.2
+
+        self.top_graph.setXRange(
+            -left_margin,
+            max_data * 1.10,
+            padding=0
+        )
+
+        for i, label in enumerate(self.top_value_labels):
+            label.setText(format_data(self.data_values[i]))
+            label.setPos(self.data_values[i] + 2, i)
+
+        for i, label in enumerate(self.top_ip_labels):
+            label.setText(self.top_ip[i])
+            label.setPos(-left_margin * 0.05, 9 - i)
+
+        self.update_connection_table()
 
     def add_packet(self, parsed_data):
         if parsed_data is None:
@@ -340,7 +397,29 @@ class NetScopeWindow(QMainWindow):
                     column,
                     QTableWidgetItem(str(value))
                 )
+    def update_connection_table(self):
+        self.connection_table.setRowCount(0)
+        recent_connections = list(connections.items())[-MAX_THREAT_RECORDS:]
+        for connection, dict in recent_connections:
+            row = self.connection_table.rowCount()
+            self.connection_table.insertRow(row)
+            endpoint1, endpoint2, protocol = connection
+            src_ip, src_port = endpoint1
+            dst_ip, dst_port = endpoint2
         
+            values = [
+                f"{src_ip}:{src_port}",
+                f"{dst_ip}:{dst_port}",
+                protocol,
+                f"{dict['packets']}",
+                f"{format_data(dict['data'])}"
+            ]
+            for column, value in enumerate(values):
+                self.connection_table.setItem(
+                    row,
+                    column,
+                    QTableWidgetItem(str(value))
+                )
     def show_details(self, row, col):
         details = []
         for col in range(self.packet_table.columnCount()):
@@ -467,8 +546,6 @@ class NetScopeWindow(QMainWindow):
             padding: 10px;
         """)
 
-
-
         self.metrics_section = QWidget()
         self.metrics_layout = QHBoxLayout()
         self.metrics_section.setLayout(self.metrics_layout)
@@ -537,8 +614,6 @@ class NetScopeWindow(QMainWindow):
         self.upload_layout.addWidget(self.upload_title)
         self.upload_layout.addWidget(self.upload_value)
         
-
-        
         self.download_layout = QVBoxLayout()
         self.download_card.setLayout(self.download_layout)
         self.download_title = QLabel("Download Speed")
@@ -563,13 +638,10 @@ class NetScopeWindow(QMainWindow):
         self.metrics_layout.addWidget(self.upload_card)
         self.metrics_layout.addWidget(self.download_card)
    
-
         self.packet_card.setObjectName("metricCard")
         self.pps_card.setObjectName("metricCard")
         self.upload_card.setObjectName("metricCard")
         self.download_card.setObjectName("metricCard")
-
-
 
         self.metrics_section.setStyleSheet("""
             QWidget#metricCard {
@@ -663,7 +735,6 @@ class NetScopeWindow(QMainWindow):
             font-size: 16px;
         """)
 
-
         self.threat_monitoring = QWidget()
         self.threat_layout = QVBoxLayout()
         self.threat_monitoring.setLayout(self.threat_layout)
@@ -682,15 +753,12 @@ class NetScopeWindow(QMainWindow):
                 color: #A6A6B8;
                 font-size: 16px;
             """)
-
-        
+    
         self.main_content_layout.addWidget(self.traffic_overview)
         self.main_content_layout.addWidget(self.threat_monitoring)
-
        
         self.threat_monitoring.setObjectName("main")
         self.traffic_overview.setObjectName("main")
-
 
         self.main_content.setStyleSheet("""
             QWidget#main {
@@ -724,12 +792,9 @@ class NetScopeWindow(QMainWindow):
             font-size: 16px;
         """)
 
-
         self.recent_activity = QWidget()
         self.recent_activity_layout = QVBoxLayout()
         self.recent_activity.setLayout(self.recent_activity_layout)
-
-
 
         self.recent_activity_title = QLabel("Recent Activity")
         self.recent_activity_title.setStyleSheet("""
@@ -765,7 +830,6 @@ class NetScopeWindow(QMainWindow):
         self.timer.timeout.connect(self.update_packet)
         self.timer.start(1000)
 
-
         self.dashboard_layout.setStretch(0, 1)
         self.dashboard_layout.setStretch(1, 1)
         self.dashboard_layout.setStretch(2, 2)
@@ -779,7 +843,6 @@ class NetScopeWindow(QMainWindow):
         self.bottom_content_layout.setStretch(1, 1)
 
         self.pages.addWidget(self.dashboard_page)
-
 
         self.packets_page = QWidget()
         self.packet_page_layout = QVBoxLayout()
@@ -1473,6 +1536,7 @@ class NetScopeWindow(QMainWindow):
         )
         self.service_graph.setTitle("Packets by Service")
         self.service_graph.showGrid(x=True, y=True, alpha=0.3)
+
         self.service_values = [0, 0, 0, 0, 0]
         self.service_bar = pg.BarGraphItem(
             x = list(range(len(services))),
@@ -1502,6 +1566,227 @@ class NetScopeWindow(QMainWindow):
         self.pages.addWidget(self.statistics_page)
 
         self.top_talkers_page = QWidget()
+        self.top_talkers_page_layout = QVBoxLayout()
+        self.top_talkers_page.setLayout(self.top_talkers_page_layout)
+        
+        self.top_talkers_header = QLabel("Top Talkers")
+        self.top_talkers_header.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            padding: 10px;
+        """)
+        self.top_talkers_page_layout.addWidget(self.top_talkers_header)
+        self.top_talkers_subtitle = QLabel(
+            "Devices/IPs generating the most network traffic "
+            )
+        self.top_talkers_subtitle.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            padding-left: 10px;
+            padding-bottom: 10px;
+            """)
+        self.top_talkers_page_layout.addWidget(self.top_talkers_subtitle)
+
+        self.tt_section = QWidget()
+        self.tt_layout = QHBoxLayout()
+        self.tt_section.setLayout(self.tt_layout)
+    
+        self.host_card = QWidget()
+        self.data_card = QWidget()
+        self.top_card = QWidget()
+
+        self.host_layout = QVBoxLayout()
+        self.host_card.setLayout(self.host_layout)
+        self.host_title = QLabel("Total Hosts")
+        self.host_value = QLabel("0")
+        self.host_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.host_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.host_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        self.host_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+        self.host_layout.addWidget(self.host_title)
+        self.host_layout.addWidget(self.host_value)
+
+        self.data_layout = QVBoxLayout()
+        self.data_card.setLayout(self.data_layout)
+        self.data_title = QLabel("Total data")
+        self.data_value = QLabel("0 B")
+        self.data_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.data_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.data_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        self.data_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+        self.data_layout.addWidget(self.data_title)
+        self.data_layout.addWidget(self.data_value)
+
+        self.top_layout = QVBoxLayout()
+        self.top_card.setLayout(self.top_layout)
+        self.top_title = QLabel("Top Talker")
+        self.top_value = QLabel("None")
+        self.top_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.top_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.top_title.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            font-weight: bold;
+        """)
+        self.top_value.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        """)
+        self.top_layout.addWidget(self.top_title)
+        self.top_layout.addWidget(self.top_value)
+    
+        self.host_card.setObjectName("metricCard")
+        self.top_card.setObjectName("metricCard")
+        self.data_card.setObjectName("metricCard")
+    
+        self.tt_section.setStyleSheet("""
+            QWidget#metricCard {
+            background-color: #1E1E2F;
+            border-radius: 10px;
+            padding: 10px;
+            }
+        """)
+        self.tt_layout.addWidget(self.host_card)
+        self.tt_layout.addWidget(self.data_card)
+        self.tt_layout.addWidget(self.top_card)
+
+        self.top_talkers_page_layout.addWidget(self.tt_section)
+        self.top_talker_graph = QWidget()
+        self.top_talker_graph_layout = QVBoxLayout()
+        self.top_talker_graph.setLayout(self.top_talker_graph_layout)
+
+        self.top_ip = ["IP1","IP2","IP3","IP4","IP5","IP6","IP7","IP8","IP9","IP10"]
+        self.data_values = [0, 0, 0, 0, 0, 0, 0, 0, 0 , 0]
+        self.top_graph = pg.PlotWidget()
+        self.top_graph.setTitle("Top Talkers")
+        self.top_bar = pg.BarGraphItem(
+            x = [value / 2 for value in self.data_values],
+            y = list(range(len(self.top_ip))),
+            width = self.data_values,
+            height = 0.4,
+            brush="#4DA6FF"
+        )
+        self.top_graph.addItem(self.top_bar)
+        self.top_value_labels = []
+        for i, val in enumerate(self.top_ip):
+            label = pg.TextItem(
+                text = "0",
+                color="#F9F9F5",
+                anchor=(0, 0.5)
+            )
+            self.top_value_labels.append(label)
+            self.top_graph.addItem(label)
+            label.setPos(self.data_values[i] + 1, i)
+
+        self.top_ip_labels = []
+        for i, ip in enumerate(self.top_ip):
+            label = pg.TextItem(
+                text = self.top_ip[i],
+                color="#F9F9F5",
+                anchor=(1, 0.5)
+            )
+            self.top_ip_labels.append(label)
+            self.top_graph.addItem(label)
+            label.setPos(-2, 9-i)
+
+        self.top_graph.hideAxis("left")
+        self.top_graph.hideAxis("bottom")
+
+        self.top_talker_graph_layout.addWidget(self.top_graph)
+        self.top_talkers_page_layout.addWidget(self.top_talker_graph)
+
+        self.connection_details = QWidget()
+        self.connection_details_layout = QVBoxLayout()
+        self.connection_details.setLayout(self.connection_details_layout)
+        self.connection_details_title = QLabel("Active Connections")
+        self.connection_details_title.setStyleSheet("""
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        """)
+
+
+        self.connection_details_layout.addWidget(
+            self.connection_details_title
+        )
+        self.top_talkers_page_layout.addWidget(self.connection_details)
+        self.connection_table = QTableWidget()
+
+        self.connection_table.setColumnCount(5)
+        self.connection_table.setHorizontalHeaderLabels([
+            "Endpoint 1",
+            "Endpoint 2",
+            "Protocol",
+            "Packets",
+            "Size"
+            ])
+
+        self.top_talkers_page_layout.addWidget(self.connection_table)
+        self.connection_table.setAlternatingRowColors(True)
+
+        self.connection_table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows
+        )
+
+        self.connection_table.setEditTriggers(
+            QTableWidget.EditTrigger.NoEditTriggers
+        )
+
+        self.connection_table.setSortingEnabled(True)
+        header = self.connection_table.horizontalHeader()
+
+        header.setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        self.connection_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #1E1E2F;
+                color: white;
+                gridline-color: #3A3A4F;
+                border: none;
+                border-radius: 10px;
+                font-size: 13px;
+            }
+
+            QTableWidget::item:selected {
+                background-color: #3A3A4F;
+            }
+
+            QHeaderView::section {
+                background-color: #2B2B3C;
+                color: #A6A6B8;
+                padding: 8px;
+                border: none;
+                font-weight: bold;
+            }
+        """)
+        self.top_talker_graph.setMinimumHeight(250)
+        self.top_talker_graph.setMaximumHeight(300)
+
+        self.top_talkers_page_layout.setStretch(0, 0)
+        self.top_talkers_page_layout.setStretch(1, 0)
+        self.top_talkers_page_layout.setStretch(2, 1)
+        self.top_talkers_page_layout.setStretch(3, 0)
+        self.top_talkers_page_layout.setStretch(4, 1)
+  
         self.pages.addWidget(self.top_talkers_page)
 
         self.logs_page = QWidget()
