@@ -33,7 +33,6 @@ def update_live_speed():
 def update_bandwidth(parsed_packet):
     if parsed_packet is None:
         return
-    print("PACKET SIZE:", parsed_packet["size"])
     bandwidth["total_bytes"] += parsed_packet["size"]
     bandwidth["total_packets"] += 1
 

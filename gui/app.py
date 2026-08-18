@@ -9,8 +9,11 @@ from core.top_talkers import top_talkers, format_bytes
 from core.recent_activity import recent_activity
 from datetime import datetime
 from core.packet_statistics import stats
+from reports.report import collect_report_data, generate_json_report
 import time
+import os
 import pyqtgraph as pg
+import json
 
 MAX_POINTS = 30
 MAX_PACKET_ROWS = 100
@@ -371,6 +374,32 @@ class NetScopeWindow(QMainWindow):
             show = search_match and proto_match and service_match
             self.packet_table.setRowHidden(row, not show)
 
+
+   
+
+    def generate_report(self):
+        time_range = self.time_range_combo.currentText()
+        report_format = self.format_combo.currentText()
+
+        print("Format:", report_format)
+        print("Current directory:", os.getcwd())
+
+        data = collect_report_data(
+            time_range,
+            self.elapsed_time
+        )
+
+        if report_format == "JSON":
+            filename = "NetScope_Report.json"
+
+            filepath = generate_json_report(
+                data,
+                filename
+            )
+
+            print("JSON report generated")
+            print("Saved At:", filepath)
+        
     def update_threat_table(self):
         self.threat_table.setRowCount(0)
 
@@ -399,7 +428,7 @@ class NetScopeWindow(QMainWindow):
                 )
     def update_connection_table(self):
         self.connection_table.setRowCount(0)
-        recent_connections = list(connections.items())[-MAX_THREAT_RECORDS:]
+        recent_connections = list(connections.items())[-MAX_CONNECTION_RECORDS:]
         for connection, dict in recent_connections:
             row = self.connection_table.rowCount()
             self.connection_table.insertRow(row)
@@ -671,7 +700,7 @@ class NetScopeWindow(QMainWindow):
         self.time_data = []
         self.upload_data = []
         self.download_data = []
-        self.elapsed_time = 0;
+        self.elapsed_time = 0
 
         self.upload_axis = SpeedAxis(orientation="left")
         self.download_axis = SpeedAxis(orientation="right")
@@ -1789,7 +1818,151 @@ class NetScopeWindow(QMainWindow):
   
         self.pages.addWidget(self.top_talkers_page)
 
+
+
+
         self.logs_page = QWidget()
+        self.logs_page_layout = QVBoxLayout()
+        self.logs_page.setLayout(self.logs_page_layout)
+
+        self.logs_header = QLabel("Logs")
+        self.logs_header.setStyleSheet("""
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            padding: 10px 0px 0px 5px;
+        """)
+
+        self.logs_subheader = QLabel("Network reports & system activity")
+        self.logs_subheader.setStyleSheet("""
+            color: #9ca3af;
+            font-size: 14px;
+            padding-left: 5px;
+            padding-bottom: 10px;
+        """)
+
+        self.logs_page_layout.addWidget(self.logs_header)
+        self.logs_page_layout.addWidget(self.logs_subheader)
+
+        self.export_section = QWidget()
+        self.export_section_layout = QVBoxLayout()
+        self.export_section.setLayout(self.export_section_layout)
+        self.logs_page_layout.addWidget(self.export_section)
+
+        self.export_title = QLabel("Export Report")
+        self.export_title.setStyleSheet("""
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        """)
+        self.export_section_layout.addWidget(self.export_title)
+
+        self.export_description = QLabel(
+            "Generate a report from NetScope's collected analysis"
+        )
+        self.export_description.setStyleSheet("""
+            color: #9ca3af;
+            font-size: 13px;
+        """)
+        self.export_section_layout.addWidget(self.export_description)
+
+        self.export_controls_layout = QHBoxLayout()
+        self.export_section_layout.addLayout(self.export_controls_layout)
+
+        self.time_range_layout = QVBoxLayout()
+        self.time_range_label = QLabel("Time Range")
+        self.time_range_label.setStyleSheet("""
+            color: #9ca3af;
+            font-size: 13px;
+        """)
+
+        self.time_range_layout.addWidget(
+            self.time_range_label
+        )
+        self.time_range_combo = QComboBox()
+        self.time_range_combo.addItems([
+            "Last 5 Minutes",
+            "Last 30 Minutes",
+            "Last 1 Hour",
+            "Last 2 Hours"
+        ])
+
+        self.time_range_layout.addWidget(
+            self.time_range_combo
+        )
+        self.export_controls_layout.addLayout(
+            self.time_range_layout
+        )
+
+
+        self.format_layout = QVBoxLayout()
+        self.format_label = QLabel("Format")
+        self.format_label.setStyleSheet("""
+            color: #9ca3af;
+            font-size: 13px;
+        """)
+
+        self.format_layout.addWidget(
+            self.format_label
+        )
+        self.format_combo = QComboBox()
+        self.format_combo.addItems([
+            "PDF",
+            "CSV",
+            "JSON"
+        ])
+
+        self.format_layout.addWidget(
+            self.format_combo
+        )
+
+        self.export_controls_layout.addLayout(
+            self.format_layout
+        )
+
+        self.export_controls_layout.addStretch()
+
+        self.generate_report_button = QPushButton(
+            "Generate Report"
+        )
+
+        self.export_controls_layout.addWidget(
+            self.generate_report_button
+        )
+
+        self.generate_report_button.clicked.connect(
+            self.generate_report
+    )
+
+        self.recent_exports_section = QWidget()
+        self.recent_exports_layout = QVBoxLayout()
+        self.recent_exports_section.setLayout(
+            self.recent_exports_layout
+        )
+
+        self.logs_page_layout.addWidget(
+            self.recent_exports_section
+        )
+        self.recent_exports_title = QLabel("Recent Exports")
+        self.recent_exports_title.setStyleSheet("""
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        """)
+        self.recent_exports_layout.addWidget(
+            self.recent_exports_title
+        )
+
+        
+
+
+
+
+
+
+
+
+
         self.pages.addWidget(self.logs_page)
 
         self.settings_page = QWidget()

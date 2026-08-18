@@ -21,7 +21,6 @@ def initialize_alert_logger():
 
     
 def alerts_logger(alert_type, src_id, dst_id, details, status):
-    print(f"Logging: {alert_type} ({status})")
     if writer is None:
         return
 
