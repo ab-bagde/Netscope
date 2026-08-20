@@ -56,17 +56,7 @@ def collect_report_data(time_range, capture_duration):
 
     return report_data
 
-def generate_json_report(report_data, filename):
-    report_folder = os.path.join(
-        os.path.dirname(__file__),
-        "generated"
-    )
-    os.makedirs(report_folder, exist_ok=True)
-
-    file_path = os.path.join(
-        report_folder,
-        filename
-    )
+def generate_json_report(report_data, file_path):
     with open(file_path, "w") as file:
         json.dump(
             report_data,
@@ -77,16 +67,16 @@ def generate_json_report(report_data, filename):
     return file_path
 
 
-def generate_csv_report(report_data, filename):
-    report_folder = os.path.join(
-        os.path.dirname(__file__),
-        "generated"
-    )
-    os.makedirs(report_folder, exist_ok=True)
-    file_path = os.path.join(
-        report_folder,
-        filename
-    )
+def generate_csv_report(report_data, file_path):
+    # report_folder = os.path.join(
+    #     os.path.dirname(__file__),
+    #     "generated"
+    # )
+    # os.makedirs(report_folder, exist_ok=True)
+    # file_path = os.path.join(
+    #     report_folder,
+    #     filename
+    # )
 
     with open(file_path, "w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
@@ -169,17 +159,17 @@ def generate_csv_report(report_data, filename):
 
     return file_path
 
-def generate_pdf_report(report_data, filename):
-    report_folder = os.path.join(
-    os.path.dirname(__file__),
-    "generated"
-    )
+def generate_pdf_report(report_data, file_path):
+    # report_folder = os.path.join(
+    # os.path.dirname(__file__),
+    # "generated"
+    # )
 
-    os.makedirs(report_folder, exist_ok=True)
-    file_path = os.path.join(
-        report_folder,
-        filename
-    )
+    # os.makedirs(report_folder, exist_ok=True)
+    # file_path = os.path.join(
+    #     report_folder,
+    #     filename
+    # )
 
     doc = SimpleDocTemplate(
         file_path

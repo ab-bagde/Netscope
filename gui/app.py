@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QStackedWidget, QLineEdit,QComboBox,QGridLayout, QTableWidget, QHeaderView, QTableWidgetItem
+from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QStackedWidget, QLineEdit,QComboBox,QGridLayout, QTableWidget, QHeaderView, QTableWidgetItem, QFileDialog
 from core.bandwidth_monitor import bandwidth
 from PySide6.QtCore import Qt, QTimer
 from core.bandwidth_monitor import get_live_stats, format_speed, format_data
@@ -380,7 +380,8 @@ class NetScopeWindow(QMainWindow):
     def generate_report(self):
         time_range = self.time_range_combo.currentText()
         report_format = self.format_combo.currentText()
-
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        
         print("Format:", report_format)
         print("Current directory:", os.getcwd())
 
@@ -390,33 +391,63 @@ class NetScopeWindow(QMainWindow):
         )
 
         if report_format == "JSON":
-            filename = "NetScope_Report.json"
+            default_name = f"Netscope_report_{timestamp}.json"
 
-            filepath = generate_json_report(
+            file_path, _ = QFileDialog.getSaveFileName(
+               self,
+               "Save Netscope Report",
+               default_name,
+               "JSON Files (*.json)"
+            )
+
+            if not file_path:
+                return
+
+            generate_json_report(
                 data,
-                filename
+                file_path
             )
 
             print("JSON report generated")
-            print("Saved At:", filepath)
+            print("Saved At:", file_path)
 
         if report_format == "CSV":
-            filename = "NetScope_Report.csv"
+            default_name = f"Netscope_report_{timestamp}.csv"
+           
+            file_path, _ = QFileDialog.getSaveFileName(
+               self,
+               "Save Netscope Report",
+               default_name,
+               "CSV Files (*.csv)"
+            )
 
-            filepath = generate_csv_report(
+            if not file_path:
+                return
+
+            generate_csv_report(
                 data,
-                filename
+                file_path
             )
 
             print("CSV report generated")
-            print("Saved At:", filepath)
+            print("Saved At:", file_path)
 
         elif report_format == "PDF":
-            filename = "NetScope_Report.pdf"
+            default_name = f"Netscope_report_{timestamp}.pdf"
+            
+            file_path, _ = QFileDialog.getSaveFileName(
+               self,
+               "Save Netscope Report",
+               default_name,
+               "PDF Files (*.pdf)"
+            )
 
-            file_path = generate_pdf_report(
+            if not file_path:
+                return
+
+            generate_pdf_report(
                 data,
-                filename
+                file_path
             )
 
             print("PDF report generated")
