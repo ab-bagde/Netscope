@@ -9,7 +9,7 @@ from core.top_talkers import top_talkers, format_bytes
 from core.recent_activity import recent_activity
 from datetime import datetime
 from core.packet_statistics import stats
-from reports.report import collect_report_data, generate_json_report
+from reports.report import collect_report_data, generate_json_report, generate_csv_report, generate_pdf_report
 import time
 import os
 import pyqtgraph as pg
@@ -399,6 +399,28 @@ class NetScopeWindow(QMainWindow):
 
             print("JSON report generated")
             print("Saved At:", filepath)
+
+        if report_format == "CSV":
+            filename = "NetScope_Report.csv"
+
+            filepath = generate_csv_report(
+                data,
+                filename
+            )
+
+            print("CSV report generated")
+            print("Saved At:", filepath)
+
+        elif report_format == "PDF":
+            filename = "NetScope_Report.pdf"
+
+            file_path = generate_pdf_report(
+                data,
+                filename
+            )
+
+            print("PDF report generated")
+            print("Saved at:", file_path)
         
     def update_threat_table(self):
         self.threat_table.setRowCount(0)
