@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QStackedWidget, QLineEdit,QComboBox,QGridLayout, QTableWidget, QHeaderView, QTableWidgetItem, QFileDialog
+from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QStackedWidget, QLineEdit,QComboBox,QGridLayout, QTableWidget, QHeaderView, QTableWidgetItem, QFileDialog, QMessageBox
 from core.bandwidth_monitor import bandwidth
 from PySide6.QtCore import Qt, QTimer
 from core.bandwidth_monitor import get_live_stats, format_speed, format_data
@@ -388,6 +388,16 @@ class NetScopeWindow(QMainWindow):
             os.startfile(path)
 
     def clear_all_reports(self):
+        reply = QMessageBox.question(
+            self,
+            "Clear All Reports",
+            "Are you sure you want to premanently delete all reports?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
         reports = load_recent_reports()
 
         for report in reports:
