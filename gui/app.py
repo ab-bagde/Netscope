@@ -10,10 +10,12 @@ from core.recent_activity import recent_activity
 from datetime import datetime
 from core.packet_statistics import stats
 from reports.report import collect_report_data, generate_json_report, generate_csv_report, generate_pdf_report
+from reports.report_history import add_recent_report, load_recent_reports, clear_list
 import time
 import os
 import pyqtgraph as pg
 import json
+import subprocess
 
 MAX_POINTS = 30
 MAX_PACKET_ROWS = 100
@@ -189,8 +191,8 @@ class NetScopeWindow(QMainWindow):
         self.tpacket_value.setText(
             str(bandwidth['total_packets'])
         )
-        self.data_value.setText(
-           format_data(bandwidth['total_bytes'])
+        self.stat_data_value.setText(
+            format_data(bandwidth['total_bytes'])
         )
         self.upload_data_value.setText(
             format_data(bandwidth['upload_bytes'])
@@ -303,6 +305,8 @@ class NetScopeWindow(QMainWindow):
             label.setText(self.top_ip[i])
             label.setPos(-left_margin * 0.05, 9 - i)
 
+        recent_exports = load_recent_reports()
+
         self.update_connection_table()
 
     def add_packet(self, parsed_data):
@@ -374,14 +378,154 @@ class NetScopeWindow(QMainWindow):
             show = search_match and proto_match and service_match
             self.packet_table.setRowHidden(row, not show)
 
+    def open_report(self, report):
+        path = report["path"]
+        file_format = report["format"]
 
-   
+        if file_format == "JSON":
+            subprocess.Popen(["notepad.exe", path])
+        else:
+            os.startfile(path)
+
+    def clear_all_reports(self):
+        reports = load_recent_reports()
+
+        for report in reports:
+            path = report["path"]
+            if os.path.exists(path):
+                os.remove(path)
+
+        while self.recent_reports_layout.count():
+            item = self.recent_reports_layout.takeAt(0)
+
+            widget = item.widget()
+
+            if widget is not None:
+                widget.deleteLater()
+
+        clear_list()
+        self.update_recent_reports()
+
+    def update_recent_reports(self):
+
+        while self.recent_reports_layout.count():
+            item = self.recent_reports_layout.takeAt(0)
+
+            widget = item.widget()
+
+            if widget is not None:
+                widget.deleteLater()
+
+        reports = load_recent_reports()
+        if not reports:
+            no_reports_label = QLabel(
+                "No reports generated yet"
+            )
+
+            no_reports_label.setAlignment(
+                Qt.AlignmentFlag.AlignCenter
+            )
+
+            no_reports_label.setStyleSheet("""
+                color: #9ca3af;
+                font-size: 14px;
+                padding: 30px;
+            """)
+
+            self.recent_reports_layout.addWidget(
+                no_reports_label
+            )
+            return
+        for report in reports:
+
+            report_row = QWidget()
+            report_row.setObjectName("reportRow")
+
+            report_row_layout = QHBoxLayout()
+            report_row_layout.setContentsMargins(12, 10, 12, 10)
+            report_row_layout.setSpacing(10)
+
+            report_row.setLayout(report_row_layout)
+
+            details_widget = QWidget()
+            details_layout = QVBoxLayout()
+            details_layout.setContentsMargins(0, 0, 0, 0)
+            details_layout.setSpacing(4)
+
+            details_widget.setLayout(details_layout)
+
+            filename_label = QLabel(
+                report["filename"]
+            )
+            filename_label.setStyleSheet("""
+                color: white;
+                font-size: 14px;
+                font-weight: bold;
+            """)
+
+            metadata_label = QLabel(
+                f'{report["format"]} • '
+                f'{report["time_range"]} • '
+                f'{report["generated_at"]}'
+            )
+            metadata_label.setStyleSheet("""
+                color: #9ca3af;
+                font-size: 12px;
+            """)
+
+            details_layout.addWidget(filename_label)
+            details_layout.addWidget(metadata_label)
+
+            report_row_layout.addWidget(details_widget)
+            report_row_layout.addStretch()
+
+            open_button = QPushButton("Open")
+            open_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #4DA6FF;
+                    color: white;
+                    border: none;
+                    border-radius: 7px;
+                    padding: 7px 14px;
+                    font-size: 10px;
+                    font-weight: bold;
+                }
+    
+                QPushButton:hover {
+                    background-color: #3B8FE6;
+                }
+    
+                QPushButton:pressed {
+                    background-color: #2878CC;
+                }
+            """)
+
+            report_row_layout.addWidget(open_button)
+            open_button.clicked.connect(
+              lambda _, report=report: self.open_report(report)
+            )
+            self.recent_reports_layout.addWidget(
+                report_row
+            )
+
+            report_row.setStyleSheet("""
+                QWidget#reportRow {
+                    background-color: #1E1E2F;
+                    border: 1px solid #2B2B3C;
+                    border-radius: 8px;
+                }
+
+                QWidget#reportRow:hover {
+                    border: 1px solid #3A3A4F;
+                }
+            """)
 
     def generate_report(self):
         time_range = self.time_range_combo.currentText()
         report_format = self.format_combo.currentText()
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        
+        time_now = time.time()
+
         print("Format:", report_format)
         print("Current directory:", os.getcwd())
 
@@ -410,6 +554,16 @@ class NetScopeWindow(QMainWindow):
 
             print("JSON report generated")
             print("Saved At:", file_path)
+            extension = os.path.splitext(file_path)[1]
+            report = {
+                "filename": os.path.basename(file_path),
+                "path": file_path,
+                "format": extension.replace(".", "").upper(),
+                "time_range": time_range,
+                "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            add_recent_report(report)
+            self.update_recent_reports()
 
         if report_format == "CSV":
             default_name = f"Netscope_report_{timestamp}.csv"
@@ -432,6 +586,17 @@ class NetScopeWindow(QMainWindow):
             print("CSV report generated")
             print("Saved At:", file_path)
 
+            extension = os.path.splitext(file_path)[1]
+            report = {
+                "filename": os.path.basename(file_path),
+                "path": file_path,
+                "format": extension.replace(".", "").upper(),
+                "time_range": time_range,
+                "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            add_recent_report(report)
+            self.update_recent_reports()
+
         elif report_format == "PDF":
             default_name = f"Netscope_report_{timestamp}.pdf"
             
@@ -452,7 +617,18 @@ class NetScopeWindow(QMainWindow):
 
             print("PDF report generated")
             print("Saved at:", file_path)
-        
+
+            extension = os.path.splitext(file_path)[1]
+            report = {
+                "filename": os.path.basename(file_path),
+                "path": file_path,
+                "format": extension.replace(".", "").upper(),
+                "time_range": time_range,
+                "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            add_recent_report(report)
+            self.update_recent_reports()
+
     def update_threat_table(self):
         self.threat_table.setRowCount(0)
 
@@ -822,6 +998,7 @@ class NetScopeWindow(QMainWindow):
         self.threat_monitoring.setLayout(self.threat_layout)
 
         self.threat_monitoring_title = QLabel("Threat Monitoring")
+        self.threat_monitoring_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.threat_monitoring_title.setStyleSheet("""
                 color: white;
                 font-size: 18px;
@@ -865,6 +1042,7 @@ class NetScopeWindow(QMainWindow):
             font-size: 18px;
             font-weight: bold;
         """)
+        self.top_talkers_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.top_talkers_layout.addWidget(self.top_talkers_title)
         self.top_talkers_content = QLabel("No traffic data")
         self.top_talkers_content.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -884,6 +1062,7 @@ class NetScopeWindow(QMainWindow):
             font-size: 18px;
             font-weight: bold;
         """)
+        self.recent_activity_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.recent_activity_content = QLabel("No recent activity")
         self.recent_activity_content.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.recent_activity_content.setStyleSheet("""
@@ -1406,21 +1585,21 @@ class NetScopeWindow(QMainWindow):
         self.data_layout = QVBoxLayout()
         self.data_card.setLayout(self.data_layout)
         self.data_title = QLabel("Total Data")
-        self.data_value = QLabel("0")
+        self.stat_data_value = QLabel("0 B")
         self.data_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.data_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.stat_data_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.data_title.setStyleSheet("""
             color: #A6A6B8;
             font-size: 14px;
             font-weight: bold;
         """)
-        self.data_value.setStyleSheet("""
+        self.stat_data_value.setStyleSheet("""
             color: white;
             font-size: 28px;
             font-weight: bold;
         """)
         self.data_layout.addWidget(self.data_title)
-        self.data_layout.addWidget(self.data_value)
+        self.data_layout.addWidget(self.stat_data_value)
 
         self.upload_data_layout = QVBoxLayout()
         self.upload_data_card.setLayout(self.upload_data_layout)
@@ -1918,10 +2097,47 @@ class NetScopeWindow(QMainWindow):
             font-size: 13px;
         """)
         self.export_section_layout.addWidget(self.export_description)
-
+        self.export_section.setObjectName("exportSection")
+        self.export_section.setStyleSheet("""
+            QWidget#exportSection {
+            background-color: #1E1E2F;
+            border-radius: 10px;
+            }   
+        """)
+        self.export_description.setStyleSheet("""
+            color: #A6A6B8;
+            font-size: 14px;
+            padding-top: 2px;
+            padding-bottom: 10px;
+        """)
         self.export_controls_layout = QHBoxLayout()
         self.export_section_layout.addLayout(self.export_controls_layout)
 
+        combo_style = """
+            QComboBox {
+                background-color: #2B2B3C;
+                color: white;
+                border: 1px solid #3A3A4F;
+                border-radius: 6px;
+                padding: 8px 12px;
+                min-width: 150px;
+            }
+
+            QComboBox:hover {
+                border: 1px solid #4DA6FF;
+            }
+
+            QComboBox::drop-down {
+                border: none;
+                width: 25px;
+            }
+
+            QComboBox QAbstractItemView {
+                background-color: #2B2B3C;
+                color: white;
+                selection-background-color: #3A3A4F;
+            }
+        """     
         self.time_range_layout = QVBoxLayout()
         self.time_range_label = QLabel("Time Range")
         self.time_range_label.setStyleSheet("""
@@ -1972,6 +2188,8 @@ class NetScopeWindow(QMainWindow):
         self.export_controls_layout.addLayout(
             self.format_layout
         )
+        self.time_range_combo.setStyleSheet(combo_style)
+        self.format_combo.setStyleSheet(combo_style)
 
         self.export_controls_layout.addStretch()
 
@@ -1979,13 +2197,33 @@ class NetScopeWindow(QMainWindow):
             "Generate Report"
         )
 
+        self.generate_report_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4DA6FF;
+                color: white;
+                border: none;
+                border-radius: 7px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+
+            QPushButton:hover {
+                background-color: #3B8FE6;
+            }
+
+            QPushButton:pressed {
+                background-color: #2878CC;
+            }
+        """)
+
         self.export_controls_layout.addWidget(
             self.generate_report_button
         )
 
         self.generate_report_button.clicked.connect(
             self.generate_report
-    )
+        )
 
         self.recent_exports_section = QWidget()
         self.recent_exports_layout = QVBoxLayout()
@@ -2006,16 +2244,71 @@ class NetScopeWindow(QMainWindow):
             self.recent_exports_title
         )
 
+        self.recent_exports_section.setObjectName("recentExportsSection")
+
+        self.recent_exports_section.setStyleSheet("""
+            QWidget#recentExportsSection {
+                background-color: #1E1E2F;
+                border-radius: 10px;
+            }
+        """)
+
+        self.recent_exports_title.setStyleSheet("""
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            padding-bottom: 5px;
+        """)
+
+        self.recent_reports_container = QWidget()
+        self.recent_reports_layout = QVBoxLayout()
+        self.recent_reports_container.setLayout(
+            self.recent_reports_layout
+        )
+
+        self.recent_exports_layout.addWidget(
+            self.recent_reports_container
+        )
+
+
+        self.logs_page_layout.setContentsMargins(
+            10, 10, 10, 10
+        )
+
+        self.logs_page_layout.setSpacing(12)
+        self.export_controls_layout.setSpacing(15)
+        self.recent_exports_layout.addStretch()
+        self.update_recent_reports()
+
+
+        self.clear_reports = QPushButton(
+            "Clear All"
+        )
         
+        self.clear_reports.setStyleSheet("""
+            QPushButton {
+                background-color: #4DA6FF;
+                color: white;
+                border: none;
+                border-radius: 7px;
+                padding: 10px 20px;
+                font-size: 14px;
+                font-weight: bold;
+            }
 
+            QPushButton:hover {
+                background-color: #3B8FE6;
+            }
 
+            QPushButton:pressed {
+                background-color: #2878CC;
+            }
+        """)
+        self.recent_exports_layout.addWidget(self.clear_reports)
 
-
-
-
-
-
-
+        self.clear_reports.clicked.connect(
+            self.clear_all_reports
+        )
         self.pages.addWidget(self.logs_page)
 
         self.settings_page = QWidget()
